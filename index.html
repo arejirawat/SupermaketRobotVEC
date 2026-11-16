@@ -75,11 +75,12 @@ footer { border-top: 1px solid var(--line); background: var(--panel); padding: 8
   .card h2 { font-size: 15px; } .card p { font-size: 12.5px; }
   .clock, .hint { display: none; }
 }
-body.shot footer, body.shot header { display: none; }
+body.shot footer, body.shot header, body.shot .hint { display: none; }
+body.shot .toast { transition: none; }
 </style></head><body>
 
 <header>
-  <div class="ttl"><b>ภาพเคลื่อนไหวอธิบายกติกา · หุ่นยนต์ซูเปอร์มาร์เก็ต</b><span>ตัวอย่างการทำภารกิจฝั่ง A ครบ 2 งาน และตัวอย่างการทำผิด 4 แบบ · ร่างกติกา 2570 · หุ่นยนต์และเส้นทางเป็นเพียงตัวอย่าง</span></div>
+  <div class="ttl"><b>ภาพเคลื่อนไหวอธิบายกติกา · หุ่นยนต์ซูเปอร์มาร์เก็ต</b><span>ตัวอย่างการทำภารกิจฝั่ง A ครบ 2 งาน และตัวอย่างการทำผิด 4 แบบ · ร่างกติกา 2570 (แข่ง 3 นาที ใบคำสั่งซื้อติดตะกร้า) · หุ่นยนต์และเส้นทางเป็นเพียงตัวอย่าง</span></div>
   <div class="spacer"></div>
   <div class="grp" role="group" aria-label="มุมกล้อง">
     <span>มุมกล้อง</span>
@@ -93,7 +94,7 @@ body.shot footer, body.shot header { display: none; }
   <div class="stage">
     <div class="card" aria-live="polite"><div class="step" id="step"></div><h2 id="chTitle"></h2><p id="cap"></p></div>
     <canvas id="cv" aria-label="ภาพเคลื่อนไหวหุ่นยนต์ทำภารกิจในสนาม"></canvas>
-    <div class="clock"><small>เวลาแข่งขัน (7 นาที)</small><b id="clock">7:00</b></div>
+    <div class="clock"><small>เวลาแข่งขัน (3 นาที)</small><b id="clock">3:00</b></div>
     <div class="toast" id="toast"></div>
     <div class="hint">ลากเพื่อหมุนกล้อง · ล้อเมาส์หรือสองนิ้วเพื่อซูม · Shift+ลากเพื่อเลื่อน</div>
   </div>
@@ -246,7 +247,7 @@ body.shot footer, body.shot header { display: none; }
       // floor zones
       fr(0, 0, 80, 80, team);
       fr(140, 40, 260, 120, C.green);
-      fr(0, 100, 80, 200, C.yellow);
+      if (!o.cards) fr(0, 100, 80, 200, C.yellow);
       fr(40, 360, 200, 460, C.grey);
       fr(140, 660, 260, 760, C.green);
       Object.entries(OBST).forEach(([k, [x, y]]) => {
@@ -265,6 +266,7 @@ body.shot footer, body.shot header { display: none; }
       // basket station
       jtable(140, 0); jtable(200, 0);
 
+      if (!o.cards) {
       // order board + cards
       bx(0, 100, 0, 0.4, 200, 30, C.board);
       ORDERS[side].forEach((row, r) => row.forEach((code, i) => {
@@ -279,6 +281,8 @@ body.shot footer, body.shot header { display: none; }
       const job2Open = o.anim ? (A && o.anim.cover2) : (A && o.state === 'delivered');
       if (!job2Open) bx(1.2, 101, 2.5, 1.7, 199, 14.5, '#4a5058', { edge: '#2b3035' });
       if (A) label([X(2), 150, 9], job2Open ? 'แถวงานที่ 2 (เปิดแล้ว)' : 'ฝาปิดแถวงานที่ 2', 'detail', 520);
+
+      }
 
       // shelves
       function shelf(name, xBack, xFront) {
@@ -358,8 +362,7 @@ body.shot footer, body.shot header { display: none; }
         label([X(170), 20, 50], 'Basket Station 1', 'main');
         label([X(230), 20, 50], 'Station 2', 'main');
         label([X(200), 95, 1], 'Basket Zone', 'main', 900);
-        label([X(1), 150, 34], 'Order Board', 'main');
-        label([X(40), 150, 1], 'Order Zone', 'main');
+        if (!o.cards) { label([X(1), 150, 34], 'Order Board', 'main'); label([X(40), 150, 1], 'Order Zone', 'main'); }
         label([X(200), 785, 34], 'Delivery Counter (2 กรอบ)', 'main');
         label([X(200), 700, 1], 'Delivery Zone', 'main', 900);
         label([X(40), 1, 15], 'Ready Dock', 'main', 900);
@@ -369,7 +372,7 @@ body.shot footer, body.shot header { display: none; }
 
       // basket(s) and robot
       if (o.anim) {
-        if (!A) { basket(X(170), 20, 29, []); basket(X(230), 20, 29, []); }
+        if (!A) { basket(X(170), 20, 29, [], o.cards ? ORDERS.B[0] : null); basket(X(230), 20, 29, [], o.cards ? ORDERS.B[1] : null); }
       } else if (A) {
         if (o.state === 'picking') {
           robot(118, 382, true);
@@ -409,7 +412,7 @@ body.shot footer, body.shot header { display: none; }
 
     function floorRectZ(x0, y0, x1, y1, col, z) { quad([x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z], col); }
 
-    function basket(cx, cy, z, items) {
+    function basket(cx, cy, z, items, cards) {
       const w = 32, d = 20, h = 18, t = 1;
       const x0 = cx - w / 2, x1 = cx + w / 2, y0 = cy - d / 2, y1 = cy + d / 2;
       box(x0, y0, z, x1, y1, z + 1.2, C.basket, { edge: '#1c5636' });
@@ -420,6 +423,14 @@ body.shot footer, body.shot header { display: none; }
       // folding carry handle, folded down along both long rims
       box(x0 + 4, y0 - 1.2, z + h - 2, x1 - 4, y0, z + h, '#256f46', { edge: '#1c5636' });
       box(x0 + 4, y1, z + h - 2, x1 - 4, y1 + 1.2, z + h, '#256f46', { edge: '#1c5636' });
+      // order cards 6 x 9 clipped to the front rim (one binder clip each)
+      (cards || []).forEach((code, i) => {
+        const c0 = cx - 12 + 6 * i, yf = y1 + 1.2, zt = z + h;
+        box(c0 - 2.8, yf, zt - 9.2, c0 + 2.8, yf + 0.3, zt - 0.2, C.card, { edge: '#9aa0a6' });
+        box(c0 - 2.4, yf + 0.3, zt - 5.4, c0 + 2.4, yf + 0.5, zt - 0.6, C.qr, { edges: false });
+        box(c0 - 2.4, yf + 0.3, zt - 8.6, c0 + 2.4, yf + 0.5, zt - 6.2, PRODUCTS[code].col, { edges: false });
+        box(c0 - 0.9, y1 + 0.4, zt - 0.9, c0 + 0.9, yf + 0.9, zt + 1.3, '#1d2125', { edges: false });
+      });
       const spots = [[-9, -4], [0, -4], [9, -4], [-5, 4.5], [5, 4.5]];
       items.forEach((code, i) => {
         const [dx, dy] = spots[i];
@@ -450,7 +461,7 @@ body.shot footer, body.shot header { display: none; }
     function dynamic(a) {
       const tr = a.trail;
       for (let i = 1; i < tr.length; i++) for (const d of [-0.5, 0, 0.5]) edge([tr[i - 1][0] + d, tr[i - 1][1] + d, 0.7], [tr[i][0] + d, tr[i][1] + d, 0.7], '#c0392b');
-      a.baskets.forEach((b) => withXF(b.x, b.y, b.h, () => basket(0, 0, b.z, b.items)));
+      a.baskets.forEach((b) => withXF(b.x, b.y, b.h, () => basket(0, 0, b.z, b.items, b.cards)));
       const r = a.robot;
       withXF(r.x, r.y, r.h, () => {
         // example AMR 55 x 55, front = local +x
@@ -480,12 +491,9 @@ body.shot footer, body.shot header { display: none; }
         }
       }
       if (a.scan) {
-        const s = a.scan, G = '#19c37d';
-        const y0 = s.y - 8.4, y1 = s.y + 8.4, z0 = s.z - 1, z1 = s.z + 11.5, x = 1.4;
-        const cs = [[x, y0, z0], [x, y1, z0], [x, y1, z1], [x, y0, z1]];
+        const s = a.scan, G = '#19c37d', cs = s.pts, L = (p, q, u) => [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u, p[2] + (q[2] - p[2]) * u];
         for (let i = 0; i < 4; i++) { edge(cs[i], cs[(i + 1) % 4], G); edge(s.from, cs[i], G); }
-        const zz = z0 + (z1 - z0) * s.u;
-        edge([x, y0, zz], [x, y1, zz], G);
+        edge(L(cs[0], cs[3], s.u), L(cs[1], cs[2], s.u), G);
       }
       const keep = /^(START \/ RETRY A|Basket Station 1|Station 2|Order Board|ชั้นวาง S[12]|Delivery Counter|Ready Dock|ไฟ READY|O[1-4]|ฝั่ง [AB])/;
       for (let i = labels.length - 1; i >= 0; i--) if (!keep.test(labels[i].text) || (labels[i].p[0] > 400 && labels[i].kind !== 'side')) labels.splice(i, 1);
@@ -731,9 +739,9 @@ body.shot footer, body.shot header { display: none; }
   function seg(dur, fn) { T.push({ t0: total, dur, fn }); total += dur; }
   const ev = (fn) => seg(0, fn);
   const wait = (d) => seg(d, () => {});
-  function chapter(title, step, cam, chip) { const i = chapters.length; chapters.push({ t: total, title, step, chip }); ev((s) => { s.chapter = i; s.cam = cam; }); }
+  function chapter(title, step, cam, chip) { const i = chapters.length; chapters.push({ t: total, title, step, chip }); const t0 = total; ev((s) => { s.chapter = i; if (cam !== s.cam) { s.camPrev = s.cam; s.cam = cam; s.camT = t0; } }); }
   const cap = (text) => ev((s) => { s.cap = text; });
-  const cam = (name) => ev((s) => { s.cam = name; });
+  const cam = (name) => { const t0 = total; ev((s) => { if (name !== s.cam) { s.camPrev = s.cam; s.cam = name; s.camT = t0; } }); };
   const score = (key, val, toast) => { const t0 = total; ev((s) => { s.score[key] = val; if (toast) s.toast = { text: toast, t: t0 }; }); };
   function turn(h1) {
     const h0 = plan.h; let d = ((h1 - h0 + 540) % 360) - 180;
@@ -757,14 +765,15 @@ body.shot footer, body.shot header { display: none; }
   function deliver(i) {
     const fx = i === 0 ? 170 : 230;
     ev((s) => { s.carry = -1; });
-    seg(1.7, (s, u) => { const m = mount(s.robot), e = ease(u), b = s.baskets[i]; b.x = lerp(m.x, fx, e); b.y = lerp(m.y, 780, e); b.z = lerp(28, 29, e) + 16 * Math.sin(Math.PI * e); b.h = 0; s.robot.ext = 14 * Math.sin(Math.PI * e); s.robot.az = 50; });
-    ev((s) => { s.baskets[i].x = fx; s.baskets[i].y = 780; s.baskets[i].z = 29; s.delivered[i] = true; s.robot.ext = 0; s.robot.az = 60; });
+    seg(1.7, (s, u) => { const m = mount(s.robot), e = ease(u), b = s.baskets[i]; b.x = lerp(m.x, fx, e); b.y = lerp(m.y, 780, e); b.z = lerp(28, 29, e) + 16 * Math.sin(Math.PI * e); b.h = 180; s.robot.ext = 14 * Math.sin(Math.PI * e); s.robot.az = 50; });
+    ev((s) => { s.baskets[i].x = fx; s.baskets[i].y = 780; s.baskets[i].z = 29; s.baskets[i].h = 180; s.delivered[i] = true; s.robot.ext = 0; s.robot.az = 60; });
   }
-  function read(row) {
-    for (let i = 0; i < 5; i++) {
-      seg(0.7, (s, u) => { s.scan = { y: 110 + 20 * i, z: row === 0 ? 17 : 3, u }; });
-      ev((s) => { s.scan = null; s.read[row] = i + 1; });
-      if (row === 0) score('j1r', 5 * (i + 1), i === 4 ? '+25 อ่านใบคำสั่งซื้อครบ 5 ใบ' : null);
+  function readBasket(i) {
+    const sx = i === 0 ? 170 : 230;
+    for (let k = 0; k < 5; k++) {
+      const x = sx - 12 + 6 * k;
+      seg(0.5, (s, u) => { s.scan = { pts: [[x - 3.2, 32, 37.4], [x + 3.2, 32, 37.4], [x + 3.2, 32, 48.2], [x - 3.2, 32, 48.2]], u }; });
+      ev((s) => { s.scan = null; s.read[i] = k + 1; });
     }
   }
   function gotoShelf(code) {
@@ -785,54 +794,59 @@ body.shot footer, body.shot header { display: none; }
   function toStart() { go(200, 640); go(200, 548); go(150, 495); go(120, 430); go(120, 200); go(40, 95); turn(90); go(40, 27.5, { keepHeading: true, speed: 60 }); }
 
   function fresh() {
-    return { robot: { x: 40, y: 27.5, h: 90, ext: 0, az: 60 }, baskets: [{ x: 170, y: 20, z: 29, h: 0, items: [] }, { x: 230, y: 20, z: 29, h: 0, items: [] }],
+    return { robot: { x: 40, y: 27.5, h: 90, ext: 0, az: 60 }, baskets: [{ x: 170, y: 20, z: 29, h: 0, items: [], cards: ORD[0] }, { x: 230, y: 20, z: 29, h: 0, items: [], cards: ORD[1] }], camPrev: 'wide', camT: -9,
       carry: -1, delivered: [false, false], taken: {}, held: null, scan: null, lamp: false, cover2: false, trail: [[40, 27.5]], score: {}, read: [0, 0], chapter: 0, cap: '', cam: 'wide', toast: null,
       vig: false, pen: [], obst: {}, ball: {}, floor: [], mark: null, note: '' };
   }
   const pen = (text, pts, toast) => { const t0 = total; ev((s) => { s.pen.push({ text, pts }); s.toast = { text: toast, t: t0, bad: true }; }); };
   function vignette(title, n, camName, chip, robot, setup) {
     chapter(title, 'ตัวอย่างการทำผิด ' + n + '/4', camName, chip);
-    ev((s) => { const ch = s.chapter, cm = s.cam; Object.assign(s, fresh()); s.chapter = ch; s.cam = cm; s.vig = true; Object.assign(s.robot, robot); if (setup) setup(s); s.trail = [[s.robot.x, s.robot.y]]; });
+    ev((s) => { const ch = s.chapter, cm = s.cam; Object.assign(s, fresh()); s.chapter = ch; s.cam = cm; s.camPrev = cm; s.vig = true; Object.assign(s.robot, robot); if (setup) setup(s); s.trail = [[s.robot.x, s.robot.y]]; });
     plan.x = robot.x; plan.y = robot.y; plan.h = robot.h; plan.taken = {};
   }
 
   // --- script ---
   chapter('ก่อนเริ่ม: Setup และการสุ่ม', 'เตรียมสนาม', 'wide');
-  cap('ทีมมีเวลา Setup 1 นาที แก้โปรแกรมได้เฉพาะช่วงนี้ จากนั้นกรรมการสุ่มผังสินค้า ใบคำสั่งซื้อ และจุดวางกล่องรถเข็น 2 จุด (ตัวอย่างนี้คือ O3 และ O4) หลังสุ่มแล้วห้ามป้อนข้อมูลใด ๆ ให้หุ่นยนต์');
-  wait(5);
+  cap('ทีมมีเวลา Setup 1 นาที แก้โปรแกรมได้เฉพาะช่วงนี้ จากนั้นกรรมการสุ่มผังสินค้า จุดวางกล่องรถเข็น 2 จุด (ตัวอย่างนี้คือ O3 และ O4) และจับบัตรสินค้า 5 ใบหนีบกับตะกร้าแต่ละใบ หลังสุ่มแล้วห้ามป้อนข้อมูลใด ๆ ให้หุ่นยนต์');
+  wait(3);
+  cam('basket');
+  cap('ใบคำสั่งซื้อติดอยู่กับตะกร้า: บัตรสินค้า 5 ใบหนีบที่ขอบด้านหน้า ตะกร้าใบที่ 1 เป็นงานที่ 1 ใบที่ 2 เป็นงานที่ 2 ไม่มีบอร์ดคำสั่งซื้อบนผนัง');
+  wait(4.5);
 
-  chapter('ภารกิจ 1: รับตะกร้า', 'งานที่ 1 · ขั้น 1/5', 'start');
-  cap('หุ่นยนต์ออกจาก START แบบอัตโนมัติ ไปที่แท่นวางตะกร้า 1 แล้วยกตะกร้าขึ้นไว้บนตัวหุ่นยนต์');
-  go(40, 75); go(170, 75); turn(-90); load(0);
+  chapter('ภารกิจ 1: รับตะกร้าและอ่านคำสั่งซื้อ', 'งานที่ 1 · ภารกิจ 1/3', 'start');
+  cap('เวลาแข่งขัน 3 นาทีเริ่มนับ หุ่นยนต์ออกจาก START แบบอัตโนมัติ ไปที่แท่นวางตะกร้า 1');
+  go(40, 75); go(170, 75); turn(-90);
+  cam('basket');
+  cap('หุ่นยนต์อ่านบัตรสินค้า 5 ใบบนตะกร้า การอ่านไม่มีคะแนนแยก เพราะกรรมการเข้าไปตรวจที่หุ่นยนต์ระหว่างแข่งไม่ได้ ผลการอ่านวัดจากสินค้าที่ส่งถึงเคาน์เตอร์');
+  readBasket(0);
+  wait(0.4);
+  load(0);
   score('j1b', 20, '+20 รับตะกร้าไว้บนหุ่นยนต์');
-  wait(0.8);
+  wait(0.9);
 
-  chapter('ภารกิจ 2: อ่านใบคำสั่งซื้อ 5 ใบ', 'งานที่ 1 · ขั้น 2/5', 'order');
-  cap('หุ่นยนต์เข้า Order Zone แล้วอ่านใบคำสั่งซื้อแถวบนทีละใบ ได้ใบละ 5 คะแนน แถวล่างของงานที่ 2 ยังมีฝาปิดอยู่ จึงตั้งค่าล่วงหน้าไม่ได้');
-  go(60, 110); go(52, 150); turn(180); read(0);
-  wait(0.6);
-
-  chapter('ภารกิจ 3: หยิบสินค้าใส่ตะกร้า', 'งานที่ 1 · ขั้น 3/5', 'shelf');
-  cap('หุ่นยนต์ไปที่ชั้นวาง S1 และ S2 หยิบสินค้าตามใบคำสั่งซื้อทีละชิ้นใส่ตะกร้า ขั้นนี้ยังไม่ได้คะแนน เพราะคะแนนสินค้านับเมื่อตะกร้าไปถึงเคาน์เตอร์แล้วเท่านั้น');
+  chapter('ภารกิจ 2: หยิบสินค้าใส่ตะกร้า', 'งานที่ 1 · ภารกิจ 2/3', 'start');
+  cap('หุ่นยนต์ไปที่ชั้นวาง S1 และ S2 หยิบสินค้าตามบัตรทีละชิ้นใส่ตะกร้า ขั้นนี้ยังไม่ได้คะแนน เพราะคะแนนสินค้านับเมื่อตะกร้าไปถึงเคาน์เตอร์แล้วเท่านั้น');
+  go(120, 200);
+  cam('shelf');
   go(97, 300);
   ['P1', 'P3', 'P5', 'P8', 'P7'].forEach((c, i) => { gotoShelf(c); pick(c, 0); if (i === 1) cap('หยิบเบา ๆ ทีละชิ้น ถ้าสินค้าฉีก แตก รั่ว หรือขนมถุงพองลมแบน จะถูกหัก 10 คะแนนต่อชิ้น และสินค้าที่ตกค้างบนพื้นหัก 5 คะแนนต่อชิ้น'); });
   wait(0.5);
 
-  chapter('ภารกิจ 4: ส่งตะกร้าที่เคาน์เตอร์', 'งานที่ 1 · ขั้น 4/5', 'wide');
+  chapter('ภารกิจ 3: ส่งตะกร้าที่เคาน์เตอร์', 'งานที่ 1 · ภารกิจ 3/3', 'wide');
   cap('หุ่นยนต์ต้องผ่านกล่องรถเข็นลูกค้าโดยไม่ชน ถ้าลูกปิงปองบนกล่องหล่น หรือกล่องล้ำกรอบเทปเหลืองดำ จะถูกหักจุดละ 10 คะแนน กรรมการตรวจหลังจบรอบ');
   go(150, 500); go(200, 548); go(200, 640);
   cam('counter');
   go(170, 715); turn(90);
-  cap('วางตะกร้าลงในกรอบที่ 1 บนเคาน์เตอร์ เมื่อวางแล้วกรรมการจึงนับสินค้าในตะกร้า ชิ้นที่ถูกได้ 15 คะแนน ชิ้นที่ผิดหัก 10 คะแนน');
+  cap('วางตะกร้าลงในกรอบที่ 1 บนเคาน์เตอร์ กรรมการนับสินค้าเทียบกับบัตรที่ติดอยู่กับตะกร้า ชิ้นที่ถูกได้ 20 คะแนน ชิ้นที่ผิดหัก 10 คะแนน');
   deliver(0);
   score('j1d', 30, '+30 ส่งตะกร้าในกรอบ');
   wait(0.9);
-  score('j1p', 75, '+75 สินค้าถูกต้อง 5 ชิ้น');
+  score('j1p', 100, '+100 สินค้าถูกต้อง 5 ชิ้น');
   wait(0.9);
   score('j1c', 20, '+20 ครบทั้ง 5 รายการ');
   wait(1);
 
-  chapter('ภารกิจ 5: กลับ START และแตะ Ready Dock', 'งานที่ 1 · ขั้น 5/5', 'wide');
+  chapter('ภารกิจ 3 (ต่อ): กลับ START และแตะ Ready Dock', 'งานที่ 1 · ภารกิจ 3/3', 'wide');
   cap('หุ่นยนต์กลับมาจอดในพื้นที่ START เพื่อรอรับงานใหม่ แล้วถอยให้หน้าสัมผัสแตะแถบทองแดงของ Ready Dock');
   go(200, 640); go(200, 548); go(150, 495); go(120, 430); go(120, 200);
   cam('start');
@@ -844,12 +858,17 @@ body.shot footer, body.shot header { display: none; }
   wait(0.7);
 
   chapter('งานที่ 2: รับงานใหม่ต่อเนื่องทันที', 'งานที่ 2 · โบนัส', 'start');
-  cap('ไฟ READY ติด = จบงานที่ 1 (200 คะแนน) กรรมการเปิดฝาแถวล่างของ Order Board ทันที และหุ่นยนต์ออกไปรับตะกร้าใบที่ 2 ต่อได้เลยโดยไม่ต้องหยุดรอและไม่มีใครแตะ งานที่ 2 ได้โบนัสเฉพาะทีมที่ไม่ถูกหักคะแนนความเสียหายเลย');
-  ev((s) => { s.cover2 = true; s.lamp = false; });
-  go(40, 75); go(230, 75); turn(-90); load(1);
-  cap('งานที่ 2 ใช้ตะกร้าใบที่ 2 จากแท่นที่ 2 แล้วอ่านใบคำสั่งซื้อแถวล่างที่เพิ่งเปิด');
-  cam('order');
-  go(60, 110); go(52, 150); turn(180); read(1);
+  cap('ไฟ READY ติด = จบงานที่ 1 (200 คะแนน) หุ่นยนต์ออกไปรับตะกร้าใบที่ 2 ต่อได้เลยโดยไม่ต้องรอสัญญาณและไม่มีใครแตะ งานที่ 2 ได้โบนัสเฉพาะทีมที่ไม่ถูกหักคะแนนความเสียหายเลย');
+  ev((s) => { s.lamp = false; });
+  go(40, 75); go(230, 75); turn(-90);
+  cam('basket2');
+  cap('งานที่ 2 ใช้ตะกร้าใบที่ 2 จากแท่นที่ 2 ซึ่งมีบัตรสินค้าอีกชุดหนึ่งติดอยู่');
+  readBasket(1);
+  wait(0.4);
+  load(1);
+  wait(0.6);
+  cam('start');
+  go(120, 200);
   cam('shelf');
   cap('หยิบสินค้าชุดใหม่ 5 ชิ้น ชิ้นที่ถูกได้ชิ้นละ 10 คะแนน และนับเมื่อตะกร้าถึงเคาน์เตอร์เช่นเดิม');
   go(97, 300);
@@ -882,7 +901,7 @@ body.shot footer, body.shot header { display: none; }
 
   // ---------- foul examples ----------
   vignette('ทำผิด 1: ชนกล่องรถเข็นลูกค้า', 1, 'obst', 'ผิด 1: ชนกล่องรถเข็น', { x: 150, y: 470, h: 90 }, (s) => {
-    s.baskets[0].items = ['P3', 'P7', 'P1', 'P5', 'P8']; s.carry = 0; s.score = { j1b: 20, j1r: 25 }; s.read = [5, 0]; s.taken = { P3: 1, P7: 1, P1: 1, P5: 1, P8: 1 };
+    s.baskets[0].items = ['P3', 'P7', 'P1', 'P5', 'P8']; s.carry = 0; s.score = { j1b: 20 }; s.read = [5, 0]; s.taken = { P3: 1, P7: 1, P1: 1, P5: 1, P8: 1 };
   });
   cap('หุ่นยนต์รีบไปส่งตะกร้าและวิ่งชิดกล่องรถเข็น O3 เกินไป');
   wait(1.6);
@@ -904,7 +923,7 @@ body.shot footer, body.shot header { display: none; }
   wait(6);
 
   vignette('ทำผิด 2: ทำสินค้าตกพื้น', 2, 'shelf', 'ผิด 2: สินค้าตกพื้น', { x: 143, y: 407, h: 0 }, (s) => {
-    s.baskets[0].items = ['P3', 'P1']; s.carry = 0; s.score = { j1b: 20, j1r: 25 }; s.read = [5, 0]; s.taken = { P3: 1, P1: 1 };
+    s.baskets[0].items = ['P3', 'P1']; s.carry = 0; s.score = { j1b: 20 }; s.read = [5, 0]; s.taken = { P3: 1, P1: 1 };
   });
   cap('หุ่นยนต์หยิบขนมถุงพองลม (P5) จากชั้นบนของ S2 แล้วดึงกลับเร็วเกินไป');
   wait(1.4);
@@ -920,17 +939,17 @@ body.shot footer, body.shot header { display: none; }
   wait(6);
 
   vignette('ทำผิด 3: หยิบสินค้าผิดชนิด', 3, 'counter', 'ผิด 3: หยิบผิดชนิด', { x: 170, y: 715, h: 90 }, (s) => {
-    s.baskets[0].items = ['P3', 'P7', 'P1', 'P5', 'P2']; s.carry = 0; s.score = { j1b: 20, j1r: 25 }; s.read = [5, 0]; s.taken = { P3: 1, P7: 1, P1: 1, P5: 1, P2: 1 };
+    s.baskets[0].items = ['P3', 'P7', 'P1', 'P5', 'P2']; s.carry = 0; s.score = { j1b: 20 }; s.read = [5, 0]; s.taken = { P3: 1, P7: 1, P1: 1, P5: 1, P2: 1 };
   });
-  cap('ใบคำสั่งซื้อต้องการซอสปรุงรส (P8) แต่หุ่นยนต์หยิบนม UHT (P2) ใส่ตะกร้ามาแทน');
+  cap('บัตรบนตะกร้าต้องการซอสปรุงรส (P8) แต่หุ่นยนต์อ่านพลาดและหยิบนม UHT (P2) ใส่ตะกร้ามาแทน');
   wait(1.6);
   deliver(0);
   score('j1d', 30, '+30 ส่งตะกร้าในกรอบ');
   wait(0.9);
-  score('j1p', 60, '+60 สินค้าถูกต้อง 4 ชิ้น');
+  score('j1p', 80, '+80 สินค้าถูกต้อง 4 ชิ้น');
   wait(0.9);
   pen('สินค้าผิดชนิด 1 ชิ้น (P2 แทน P8)', -10, '−10 สินค้าผิดชนิด');
-  cap('กรรมการนับสินค้าเมื่อตะกร้าอยู่บนเคาน์เตอร์: ถูก 4 ชิ้นได้ 60 คะแนน ชิ้นที่ผิดหัก 10 คะแนน และไม่ได้คะแนน "ครบทั้ง 5 รายการ"');
+  cap('กรรมการนับสินค้าเมื่อตะกร้าอยู่บนเคาน์เตอร์: ถูก 4 ชิ้นได้ 80 คะแนน ชิ้นที่ผิดหัก 10 คะแนน และไม่ได้คะแนน "ครบทั้ง 5 รายการ"');
   wait(6);
 
   vignette('ทำผิด 4: ล้ำแดน ถูกสั่ง Retry', 4, 'div', 'ผิด 4: ล้ำแดน → Retry', { x: 40, y: 27.5, h: 90 });
@@ -945,7 +964,7 @@ body.shot footer, body.shot header { display: none; }
   seg(1.6, (s, u) => { const e = ease(u); s.robot.x = lerp(345, 40, e); s.robot.y = lerp(75, 27.5, e); s.robot.h = lerp(0, 90, e); s.robot.ext = 36 * (1 - Math.min(1, u * 3)); s.trail = [[s.robot.x, s.robot.y]]; });
   wait(7);
   const END = total;
-  const CLOCK_K = 385 / MAIN_END; // film seconds -> match seconds (about 6:25 of the 7:00 used)
+  const CLOCK_K = 168 / (MAIN_END - chapters[1].t); // film seconds -> match seconds (about 6:25 of the 7:00 used)
 
   function stateAt(t) {
     const s = fresh();
@@ -965,7 +984,8 @@ body.shot footer, body.shot header { display: none; }
   const CAMS = {
     wide: { target: [205, 365, 0], yaw: -128, pitch: 47, dist: 1260, fov: 40 },
     start: { target: [125, 62, 14], yaw: 58, pitch: 38, dist: 560, fov: 40 },
-    order: { target: [30, 150, 14], yaw: 64, pitch: 33, dist: 430, fov: 40 },
+    basket: { target: [200, 36, 36], yaw: 64, pitch: 27, dist: 290, fov: 40 },
+    basket2: { target: [226, 36, 36], yaw: 38, pitch: 27, dist: 290, fov: 40 },
     shelf: { target: [120, 405, 38], yaw: -90, pitch: 36, dist: 520, fov: 44 },
     counter: { target: [200, 722, 18], yaw: -102, pitch: 40, dist: 520, fov: 40 },
     obst: { target: [135, 585, 10], yaw: -75, pitch: 44, dist: 440, fov: 40 },
@@ -986,8 +1006,7 @@ body.shot footer, body.shot header { display: none; }
   // ---------- score sheet ----------
   const ROWS = [
     ['sc1', 'j1b', 'รับตะกร้าขึ้นหุ่นยนต์', 20],
-    ['sc1', 'j1r', 'อ่านใบคำสั่งซื้อ (5 × 5)', 25],
-    ['sc1', 'j1p', 'สินค้าถูกต้องในตะกร้า (15 × 5)', 75],
+    ['sc1', 'j1p', 'สินค้าถูกต้องในตะกร้า (20 × 5)', 100],
     ['sc1', 'j1d', 'ส่งตะกร้าในกรอบเคาน์เตอร์', 30],
     ['sc1', 'j1c', 'ครบทั้ง 5 รายการ', 20],
     ['sc1', 'j1s', 'กลับถึง START', 15],
@@ -1006,7 +1025,7 @@ body.shot footer, body.shot header { display: none; }
   });
   let lastUI = '';
   function updateUI(s, t) {
-    const sig = JSON.stringify([s.score, s.chapter, s.cap, s.baskets[0].items.length, s.baskets[1].items.length, s.delivered, s.pen, s.note]);
+    const sig = JSON.stringify([s.score, s.chapter, s.cap, s.baskets[0].items.length, s.baskets[1].items.length, s.delivered, s.pen, s.note, s.read]);
     if (sig !== lastUI) {
       lastUI = sig;
       let sum = 0;
@@ -1017,7 +1036,7 @@ body.shot footer, body.shot header { display: none; }
         li.querySelector('.pt').textContent = v + '/' + max;
         const job = key === 'j1p' ? 0 : key === 'j2p' ? 1 : -1;
         let extra = '';
-        if (job >= 0 && !s.delivered[job] && s.baskets[job].items.length) extra = 'ในตะกร้า ' + s.baskets[job].items.length + '/5 ชิ้น · ยังไม่นับคะแนน';
+        if (job >= 0 && !s.delivered[job] && (s.read[job] || s.baskets[job].items.length)) extra = (s.read[job] ? 'อ่านบัตรได้ ' + ORD[job].slice(0, s.read[job]).join(' ') + ' · ' : '') + 'ในตะกร้า ' + s.baskets[job].items.length + '/5 ชิ้น · ยังไม่นับคะแนน';
         const tx = li.querySelector('.tx'); tx.textContent = text;
         if (extra) { const sm = document.createElement('small'); sm.textContent = extra; tx.appendChild(sm); }
       }
@@ -1031,9 +1050,9 @@ body.shot footer, body.shot header { display: none; }
       $('cap').textContent = s.cap;
       document.querySelectorAll('#chips button').forEach((b, i) => b.setAttribute('aria-pressed', String(i === s.chapter)));
     }
-    const left = Math.max(0, 420 - Math.min(t, MAIN_END) * CLOCK_K);
+    const left = Math.max(0, 180 - (Math.min(t, MAIN_END) - chapters[1].t) * CLOCK_K);
     const started = t >= chapters[1].t;
-    $('clock').textContent = s.vig ? '–:––' : started ? Math.floor(left / 60) + ':' + String(Math.floor(left % 60)).padStart(2, '0') : '7:00';
+    $('clock').textContent = s.vig ? '–:––' : started ? Math.floor(left / 60) + ':' + String(Math.floor(left % 60)).padStart(2, '0') : '3:00';
     const tw = $('toast'), on = s.toast && t - s.toast.t < 1.7;
     tw.classList.toggle('on', !!on); if (on) { tw.textContent = s.toast.text; tw.classList.toggle('bad', !!s.toast.bad); }
     const f = (x) => Math.floor(x / 60) + ':' + String(Math.floor(x % 60)).padStart(2, '0');
@@ -1048,10 +1067,16 @@ body.shot footer, body.shot header { display: none; }
   const rgb = (c) => { const m = c.match(/^#([0-9a-f]{6})$/i); if (!m) return [238, 241, 240]; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
   const ptrs = new Map();
   let t = Number(qs.get('t') || 0), playing = false, speed = 1, seeking = false, lastTs = 0, dirty = true, snap = true, ssPlay = 1, slow = 0;
-  const still = qs.has('t');
+  let still = qs.has('t'), video = false;
   if (still) document.body.classList.add('shot');
 
-  function frame(ts) {
+  function camAt(s, tt) {
+    const a = CAMS[s.camPrev], b = CAMS[s.cam], u = ease(Math.min(1, Math.max(0, (tt - s.camT) / 1.5)));
+    const dy = ((b.yaw - a.yaw + 540) % 360) - 180;
+    return { target: [0, 1, 2].map((i) => lerp(a.target[i], b.target[i], u)), yaw: a.yaw + dy * u, pitch: lerp(a.pitch, b.pitch, u), dist: lerp(a.dist, b.dist, u), fov: lerp(a.fov, b.fov, u) };
+  }
+  function loop(ts) { tick(ts); requestAnimationFrame(loop); }
+  function tick(ts) {
     const dt = Math.min(0.1, (ts - lastTs) / 1000 || 0); lastTs = ts;
     if (playing) { t += dt * speed; if (t >= END) { t = END; setPlaying(false); } dirty = true; }
     const s = stateAt(t);
@@ -1059,7 +1084,7 @@ body.shot footer, body.shot header { display: none; }
     const want = isFree ? camName : camMode === 'auto' ? s.cam : camMode;
     const moving = isFree ? ptrs.size > 0 : !camCur || want !== camName || (camCur && !camCur.ortho && (Math.abs(camCur.dist - CAMS[want].dist) > 1 || Math.abs(((CAMS[want].yaw - camCur.yaw + 540) % 360) - 180) > 0.2));
     if (dirty || moving) {
-      if (!isFree) { camStep(want, dt, snap || still); camName = want; } snap = false;
+      if (video) { camCur = camAt(s, t); camName = s.cam; } else if (!isFree) { camStep(want, dt, snap || still); camName = want; } snap = false;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       const W = Math.max(50, Math.round(cv.clientWidth * dpr)), H = Math.max(50, Math.round(cv.clientHeight * dpr));
       if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
@@ -1069,7 +1094,7 @@ body.shot footer, body.shot header { display: none; }
       const c = camCur;
       if (c.ortho) c.scale = Math.min(iw / 440, ih / 860);
       const t0 = performance.now();
-      const scene = SMField.build({ layout: 'L1', obst: 6, anim: s });
+      const scene = SMField.build({ layout: 'L1', obst: 6, cards: true, anim: s });
       if (c.ortho) scene.labels = scene.labels.filter((l) => /^(ชั้นวาง|O[1-4]$|ฝั่ง|Order Board|Delivery)/.test(l.text));
       const info = SMRender.render(offCtx, scene, c, { bg: rgb(cssVar('--bg')), lineWidth: Math.max(1, Math.round(1.3 * ss * dpr)) });
       ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
@@ -1083,7 +1108,6 @@ body.shot footer, body.shot header { display: none; }
       updateUI(s, t);
     }
     document.body.dataset.ready = '1';
-    requestAnimationFrame(frame);
   }
 
   function setPlaying(p) { playing = p; $('play').textContent = p ? '❚❚ หยุด' : (t >= END ? '↺ เล่นซ้ำ' : '▶ เล่น'); dirty = true; }
@@ -1123,8 +1147,8 @@ body.shot footer, body.shot header { display: none; }
   document.addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') { e.preventDefault(); $('play').click(); } });
   window.addEventListener('resize', () => { dirty = true; });
   if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { dirty = true; });
-  window.__motion = { END, chapters, T: T.length, bench() { const s = stateAt(30), t0 = performance.now(); for (let i = 0; i < 10; i++) { const sc = SMField.build({ layout: 'L1', obst: 6, anim: s }); SMRender.render(offCtx, sc, camCur, {}); } return [(performance.now() - t0) / 10, off.width, off.height]; } };
-  const start = () => { setPlaying(false); requestAnimationFrame(frame); };
+  window.__motion = { END, chapters, T: T.length, seek(tt) { t = tt; video = true; still = true; camMode = 'auto'; dirty = true; tick(performance.now()); }, bench() { const s = stateAt(30), t0 = performance.now(); for (let i = 0; i < 10; i++) { const sc = SMField.build({ layout: 'L1', obst: 6, cards: true, anim: s }); SMRender.render(offCtx, sc, camCur, {}); } return [(performance.now() - t0) / 10, off.width, off.height]; } };
+  const start = () => { setPlaying(false); requestAnimationFrame(loop); };
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(start); else start();
 })();
 </script>
