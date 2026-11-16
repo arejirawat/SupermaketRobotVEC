@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ภาพเคลื่อนไหวอธิบายกติกา หุ่นยนต์ซูเปอร์มาร์เก็ต</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: film stage on the left (canvas + caption card), score sheet on the right, transport bar along the bottom. */
+:root {
+  --bg: #eef1ef; --panel: #ffffff; --ink: #1d2226; --muted: #5d676d; --line: #d3d9d6;
+  --accent: #0e7a55; --accent-ink: #ffffff; --chip: #f3f6f4; --warn: #b4461f; --gain: #0e7a55;
+  --font: "IBM Plex Sans Thai", "Sarabun", "Loma", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #151a1c; --panel: #1f2629; --ink: #e8ecea; --muted: #9aa6a2; --line: #33403c; --accent: #3fbf8c; --accent-ink: #0d1512; --chip: #263033; --warn: #f0a070; --gain: #3fbf8c; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #151a1c; --panel: #1f2629; --ink: #e8ecea; --muted: #9aa6a2; --line: #33403c; --accent: #3fbf8c; --accent-ink: #0d1512; --chip: #263033; --warn: #f0a070; --gain: #3fbf8c; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); display: flex; flex-direction: column; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.ttl { display: flex; flex-direction: column; min-width: 0; }
+.ttl b { font-size: 16px; font-weight: 700; }
+.ttl span { font-size: 12px; color: var(--muted); }
+.spacer { flex: 1; }
+.grp { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.grp > span { font-size: 12px; color: var(--muted); }
+button { font: 600 13px var(--font); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; cursor: pointer; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 310px; }
+.stage { position: relative; min-height: 300px; }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+canvas.drag { cursor: grabbing; }
+.hint { position: absolute; right: 12px; bottom: 12px; font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; pointer-events: none; }
+#penBox { margin-bottom: 14px; }
+#penBox[hidden] { display: none; }
+ul.sc li.pen { color: var(--ink); } ul.sc li.pen .mk, ul.sc li.pen .pt { color: var(--warn); }
+.toast.bad { background: #b3261e; color: #fff; }
+.card { z-index: 1; position: absolute; left: 12px; top: 12px; width: min(430px, calc(100% - 24px)); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px 12px; }
+.card .step { font: 600 11px var(--mono); color: var(--accent); letter-spacing: 0.4px; }
+.card h2 { margin: 2px 0 4px; font-size: 17px; font-weight: 700; line-height: 1.3; }
+.card p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink); text-wrap: pretty; }
+.clock { position: absolute; right: 12px; top: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; text-align: right; }
+.clock small { display: block; font-size: 11px; color: var(--muted); }
+.clock b { font: 600 20px var(--mono); font-variant-numeric: tabular-nums; }
+.toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 15px; border-radius: 999px; padding: 7px 16px; white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+.toast.on { opacity: 1; }
+aside { border-left: 1px solid var(--line); background: var(--panel); padding: 12px 14px; overflow: auto; }
+aside h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
+aside h3 + ul { margin-bottom: 14px; }
+ul.sc { list-style: none; margin: 0; padding: 0; }
+ul.sc li { display: grid; grid-template-columns: 18px 1fr auto; gap: 6px; align-items: baseline; padding: 5px 0; border-bottom: 1px dashed var(--line); font-size: 13px; color: var(--muted); }
+ul.sc li .mk { font: 600 12px var(--mono); }
+ul.sc li .pt { font: 600 13px var(--mono); font-variant-numeric: tabular-nums; }
+ul.sc li small { display: block; font-size: 11.5px; color: var(--warn); }
+ul.sc li.done { color: var(--ink); }
+ul.sc li.done .mk, ul.sc li.done .pt { color: var(--gain); }
+ul.sc li.part { color: var(--ink); }
+.total { display: flex; justify-content: space-between; align-items: baseline; border-top: 2px solid var(--ink); padding-top: 8px; font-weight: 700; }
+.total b { font: 600 24px var(--mono); font-variant-numeric: tabular-nums; }
+.note { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+footer { border-top: 1px solid var(--line); background: var(--panel); padding: 8px 16px 10px; display: grid; gap: 6px; }
+.bar { display: flex; align-items: center; gap: 10px; }
+.bar input[type=range] { flex: 1; min-width: 80px; accent-color: var(--accent); }
+.bar .tm { font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 84px; text-align: right; }
+#play { min-width: 74px; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.chips button { white-space: nowrap; font-size: 12px; padding: 4px 9px; }
+@media (max-width: 820px) {
+  .body { grid-template-columns: 1fr; grid-template-rows: minmax(340px, 58vh) auto; overflow: auto; }
+  aside { border-left: 0; border-top: 1px solid var(--line); }
+  .stage { display: flex; flex-direction: column; }
+  .card { position: static; width: auto; border-radius: 0; border-width: 0 0 1px; min-height: 118px; }
+  canvas { position: static; flex: 1; min-height: 0; height: auto; }
+  .card h2 { font-size: 15px; } .card p { font-size: 12.5px; }
+  .clock, .hint { display: none; }
+}
+body.shot footer, body.shot header { display: none; }
+</style></head><body>
+
+<header>
+  <div class="ttl"><b>ภาพเคลื่อนไหวอธิบายกติกา · หุ่นยนต์ซูเปอร์มาร์เก็ต</b><span>ตัวอย่างการทำภารกิจฝั่ง A ครบ 2 งาน และตัวอย่างการทำผิด 4 แบบ · ร่างกติกา 2570 · หุ่นยนต์และเส้นทางเป็นเพียงตัวอย่าง</span></div>
+  <div class="spacer"></div>
+  <div class="grp" role="group" aria-label="มุมกล้อง">
+    <span>มุมกล้อง</span>
+    <button data-cam="auto" aria-pressed="true">ตามภารกิจ</button>
+    <button data-cam="wide" aria-pressed="false">ทั้งฝั่ง A</button>
+    <button data-cam="top" aria-pressed="false">มุมบน</button>
+    <button data-cam="free" aria-pressed="false">อิสระ</button>
+  </div>
+</header>
+<div class="body">
+  <div class="stage">
+    <div class="card" aria-live="polite"><div class="step" id="step"></div><h2 id="chTitle"></h2><p id="cap"></p></div>
+    <canvas id="cv" aria-label="ภาพเคลื่อนไหวหุ่นยนต์ทำภารกิจในสนาม"></canvas>
+    <div class="clock"><small>เวลาแข่งขัน (7 นาที)</small><b id="clock">7:00</b></div>
+    <div class="toast" id="toast"></div>
+    <div class="hint">ลากเพื่อหมุนกล้อง · ล้อเมาส์หรือสองนิ้วเพื่อซูม · Shift+ลากเพื่อเลื่อน</div>
+  </div>
+  <aside>
+    <h3><span>งานที่ 1</span><span>200 คะแนน</span></h3>
+    <ul class="sc" id="sc1"></ul>
+    <h3><span>งานที่ 2 (โบนัส)</span><span>100 คะแนน</span></h3>
+    <ul class="sc" id="sc2"></ul>
+    <div id="penBox" hidden><h3><span>หักคะแนน / คำตัดสิน</span><span>ฉากตัวอย่าง</span></h3>
+    <ul class="sc" id="sc3"></ul></div>
+    <div class="total"><span>คะแนนรวม</span><b id="total">0</b></div>
+    <div class="note" id="note">คะแนนสินค้าจะนับก็ต่อเมื่อตะกร้าวางอยู่ในกรอบบนเคาน์เตอร์แล้วเท่านั้น</div>
+  </aside>
+</div>
+<footer>
+  <div class="bar">
+    <button id="play">▶ เล่น</button>
+    <input id="seek" type="range" min="0" max="1000" value="0" aria-label="ตำแหน่งเวลา">
+    <span class="tm" id="tm"></span>
+    <div class="grp" role="group" aria-label="ความเร็ว">
+      <button data-speed="0.5" aria-pressed="false">0.5×</button>
+      <button data-speed="1" aria-pressed="true">1×</button>
+      <button data-speed="2" aria-pressed="false">2×</button>
+    </div>
+  </div>
+  <div class="chips" id="chips"></div>
+</footer>
+
+<script>// Scene definition for the Smart Supermarket AMR field (units: cm, Z up).
+// Half A: x 0..400 (outer wall at x=0), Half B mirrored about x=400.
+(function (root) {
+  const PRODUCTS = {
+    P1: { name: 'น้ำดื่มขวด 600 มล.', shape: 'cyl', r: 3.25, h: 21, col: '#9fcde8', cap: '#1f6fb5' },
+    P2: { name: 'นม UHT กล่อง 225 มล.', shape: 'box', w: 6.3, d: 4, h: 11, col: '#d6e4f6' },
+    P3: { name: 'เครื่องดื่มกระป๋อง 325 มล.', shape: 'cyl', r: 3.3, h: 11.5, col: '#d9433b' },
+    P4: { name: 'บะหมี่ถ้วย', shape: 'cyl', r: 4.75, h: 7, col: '#efa13a' },
+    P5: { name: 'ขนมถุงพองลม', shape: 'box', w: 12, d: 4, h: 16, col: '#f2c94c' },
+    P6: { name: 'ยาสีฟันแบบกล่อง', shape: 'box', w: 19, d: 4.5, h: 4, col: '#2fae96' },
+    P7: { name: 'บิสกิตแบบกล่อง', shape: 'box', w: 15, d: 4, h: 7, col: '#9a6235' },
+    P8: { name: 'ซอสปรุงรสขวด 200 มล.', shape: 'cyl', r: 2.5, h: 18, col: '#6a3020', cap: '#c0392b' },
+  };
+  const LAYOUTS = {
+    L1: ['P1', 'P2', 'P3', 'P4', 'P8', 'P6', 'P7', 'P5'],
+    L2: ['P8', 'P6', 'P7', 'P5', 'P1', 'P2', 'P3', 'P4'],
+    L3: ['P8', 'P1', 'P6', 'P3', 'P4', 'P7', 'P2', 'P5'],
+    L4: ['P1', 'P5', 'P2', 'P7', 'P8', 'P6', 'P3', 'P4'],
+  };
+  const OBST = { O1: [100, 240], O2: [260, 240], O3: [100, 560], O4: [260, 560] };
+  const OBST_PATTERNS = { 1: ['O1', 'O2'], 2: ['O1', 'O3'], 3: ['O1', 'O4'], 4: ['O2', 'O3'], 5: ['O2', 'O4'], 6: ['O3', 'O4'] };
+  const ORDERS = { A: [['P3', 'P7', 'P1', 'P5', 'P8'], ['P2', 'P6', 'P4', 'P5', 'P1']], B: [['P2', 'P4', 'P6', 'P8', 'P1'], ['P3', 'P5', 'P7', 'P1', 'P2']] };
+
+  const C = {
+    floor: '#f6f6f2', wall: '#e4e6e2', red: '#d2443c', blue: '#2f6fd0', green: '#3a9e58', yellow: '#efc02e',
+    grey: '#a4a9ae', purple: '#8a46b0', white: '#fbfbf9', shelf: '#eceeec', shelfBack: '#d9dcda',
+    basket: '#2e8b57', card: '#ffffff', board: '#3a3f46', qr: '#1b1d20', label: '#fff1a6',
+    carton: '#c79d66', cartonDark: '#a77d48', metal: '#aab1b9', robot: '#3c4249', robotLight: '#59616b',
+    screen: '#14324a', lampOn: '#25d366', lampOff: '#71877a', counterTop: '#f4f4f0',
+  };
+
+  function hex(c) { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+
+  function build(opts) {
+    const o = Object.assign({ layout: 'L1', obst: 3, state: 'picking' }, opts || {});
+    const tris = [], edges = [], labels = [];
+    const EDGE = '#3a3f44';
+
+    let XF = null;
+    function tri(a, b, c, col) { if (XF) { a = XF(a); b = XF(b); c = XF(c); } tris.push({ v: [a, b, c], c: hex(col) }); }
+    function withXF(x, y, deg, fn) {
+      const r = deg * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r), prev = XF;
+      XF = (p) => { const q = [x + p[0] * cs - p[1] * sn, y + p[0] * sn + p[1] * cs, p[2]]; return prev ? prev(q) : q; };
+      fn(); XF = prev;
+    }
+    function quad(a, b, c, d, col) { tri(a, b, c, col); tri(a, c, d, col); }
+    function edge(a, b, col) { if (XF) { a = XF(a); b = XF(b); } edges.push({ a, b, c: hex(col || EDGE) }); }
+    function box(x0, y0, z0, x1, y1, z1, col, opt) {
+      opt = opt || {};
+      if (x0 > x1) [x0, x1] = [x1, x0];
+      if (y0 > y1) [y0, y1] = [y1, y0];
+      const P = [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]];
+      const top = opt.top || col;
+      if (!opt.noBottom) quad(P[0], P[3], P[2], P[1], col);
+      quad(P[4], P[5], P[6], P[7], top);
+      quad(P[0], P[1], P[5], P[4], col);
+      quad(P[1], P[2], P[6], P[5], col);
+      quad(P[2], P[3], P[7], P[6], col);
+      quad(P[3], P[0], P[4], P[7], col);
+      if (opt.edges !== false) {
+        const ec = opt.edge || EDGE;
+        [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]].forEach(([i, j]) => edge(P[i], P[j], ec));
+      }
+    }
+    function cyl(cx, cy, z0, r, h, col, opt) {
+      opt = opt || {};
+      const n = opt.n || 18, top = opt.top || col;
+      const ring = (z) => Array.from({ length: n }, (_, i) => [cx + r * Math.cos(2 * Math.PI * i / n), cy + r * Math.sin(2 * Math.PI * i / n), z]);
+      const b = ring(z0), t = ring(z0 + h), cb = [cx, cy, z0], ct = [cx, cy, z0 + h];
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        quad(b[i], b[j], t[j], t[i], col);
+        tri(ct, t[i], t[j], top);
+        tri(cb, b[j], b[i], col);
+      }
+      if (opt.edges !== false) {
+        const ec = opt.edge || EDGE;
+        for (let i = 0; i < n; i++) { const j = (i + 1) % n; edge(t[i], t[j], ec); edge(b[i], b[j], ec); }
+      }
+    }
+    function floorRect(x0, y0, x1, y1, col, z) {
+      z = z || 0.25;
+      if (x0 > x1) [x0, x1] = [x1, x0];
+      if (y0 > y1) [y0, y1] = [y1, y0];
+      quad([x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z], col);
+      const ec = shade(col, 0.72);
+      edge([x0, y0, z], [x1, y0, z], ec); edge([x1, y0, z], [x1, y1, z], ec); edge([x1, y1, z], [x0, y1, z], ec); edge([x0, y1, z], [x0, y0, z], ec);
+    }
+    function outline(x0, y0, x1, y1, w, col) {
+      floorRect(x0, y0, x1, y0 + w, col, 0.3); floorRect(x0, y1 - w, x1, y1, col, 0.3);
+      floorRect(x0, y0 + w, x0 + w, y1 - w, col, 0.3); floorRect(x1 - w, y0 + w, x1, y1 - w, col, 0.3);
+    }
+    function shade(col, k) { const [r, g, b] = hex(col); const f = (v) => Math.max(0, Math.min(255, Math.round(v * k))).toString(16).padStart(2, '0'); return '#' + f(r) + f(g) + f(b); }
+    function label(p, text, kind, maxDist) { labels.push({ p, text, kind: kind || 'main', maxDist: maxDist || 1e9 }); }
+
+    // ---------- field base ----------
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+      const x = i * 100, y = j * 100;
+      quad([x, y, 0], [x + 100, y, 0], [x + 100, y + 100, 0], [x, y + 100, 0], C.floor);
+    }
+    edge([0, 0, 0], [800, 0, 0]); edge([800, 0, 0], [800, 800, 0]); edge([800, 800, 0], [0, 800, 0]); edge([0, 800, 0], [0, 0, 0]);
+    box(-2, -2, 0, 0, 802, 30, C.wall, { noBottom: true });
+    box(800, -2, 0, 802, 802, 30, C.wall, { noBottom: true });
+    box(0, -2, 0, 800, 0, 30, C.wall, { noBottom: true });
+    box(0, 800, 0, 800, 802, 30, C.wall, { noBottom: true });
+    box(399, 0, 0, 401, 800, 30, C.wall, { noBottom: true });
+    label([400, 690, 31], 'แนวกั้นกลาง สูง 30 ซม.', 'main');
+
+    // ---------- one half ----------
+    function half(side) {
+      const A = side === 'A';
+      const X = (x) => (A ? x : 800 - x);
+      const bx = (x0, y0, z0, x1, y1, z1, col, opt) => box(X(x0), y0, z0, X(x1), y1, z1, col, opt);
+      const fr = (x0, y0, x1, y1, col) => floorRect(X(x0), y0, X(x1), y1, col);
+      const team = A ? C.red : C.blue;
+      // folding Japanese low table 60 x 40, top surface at 29 cm
+      const jtable = (x0, y0) => {
+        bx(x0, y0, 27, x0 + 60, y0 + 40, 29, '#efe9dd', { edge: '#6d6250' });
+        [[x0 + 3, y0 + 3], [x0 + 54, y0 + 3], [x0 + 3, y0 + 34], [x0 + 54, y0 + 34]].forEach(([lx, ly]) => bx(lx, ly, 0, lx + 3, ly + 3, 27, '#8b7a5e', { edge: '#4a4030' }));
+      };
+
+      // floor zones
+      fr(0, 0, 80, 80, team);
+      fr(140, 40, 260, 120, C.green);
+      fr(0, 100, 80, 200, C.yellow);
+      fr(40, 360, 200, 460, C.grey);
+      fr(140, 660, 260, 760, C.green);
+      Object.entries(OBST).forEach(([k, [x, y]]) => {
+        const xa = Math.min(X(x), X(x + 40));
+        outline(xa, y, xa + 40, y + 50, 4, '#f2c400');
+        outline(xa + 1.5, y + 1.5, xa + 38.5, y + 48.5, 1, '#1d1f22');
+      });
+
+      // ready dock plates + lamp
+      bx(10, 0, 8, 30, 0.3, 13, '#c8743c', { edge: '#7a4320' });
+      bx(50, 0, 8, 70, 0.3, 13, '#c8743c', { edge: '#7a4320' });
+      bx(86, -7, 30, 94, -1, 38, C.robot);
+      const docked = o.anim ? (A && o.anim.lamp) : (A && o.state === 'delivered');
+      cyl(X(90), -4, 38, 3, 5, docked ? C.lampOn : C.lampOff, { n: 14 });
+
+      // basket station
+      jtable(140, 0); jtable(200, 0);
+
+      // order board + cards
+      bx(0, 100, 0, 0.4, 200, 30, C.board);
+      ORDERS[side].forEach((row, r) => row.forEach((code, i) => {
+        const yc = 110 + 20 * i, z0 = r === 0 ? 17 : 3;
+        bx(0.4, yc - 7.4, z0, 0.8, yc + 7.4, z0 + 10.5, C.card, { edge: '#9aa0a6' });
+        bx(0.8, yc + 1.4, z0 + 1.75, 1.1, yc + 5.4, z0 + 5.75, C.qr, { edges: false });
+        bx(0.8, yc - 5.6, z0 + 1.75, 1.1, yc - 1.6, z0 + 5.75, PRODUCTS[code].col, { edges: false });
+        bx(0.8, yc - 6, z0 + 7.45, 1.1, yc + 6, z0 + 8.85, '#8a9096', { edges: false });
+        if (A && r === 0) label([X(1), yc, 29], `${i + 1}: ${code}`, 'detail', 420);
+      }));
+      // lower-row cover (futureboard flap, masking-tape hinge) stays closed until job 1 is docked
+      const job2Open = o.anim ? (A && o.anim.cover2) : (A && o.state === 'delivered');
+      if (!job2Open) bx(1.2, 101, 2.5, 1.7, 199, 14.5, '#4a5058', { edge: '#2b3035' });
+      if (A) label([X(2), 150, 9], job2Open ? 'แถวงานที่ 2 (เปิดแล้ว)' : 'ฝาปิดแถวงานที่ 2', 'detail', 520);
+
+      // shelves
+      function shelf(name, xBack, xFront) {
+        const dir = Math.sign(xFront - xBack); // +1: front toward +x (A-local)
+        const xl = Math.min(xBack, xFront), xh = Math.max(xBack, xFront);
+        // off-the-shelf boltless steel rack 100 x 40 x 100, boards at 30 / 60 / 100
+        [[xl, 360], [xh - 3, 360], [xl, 457], [xh - 3, 457]].forEach(([px, py]) => bx(px, py, 0, px + 3, py + 3, 100, '#2f3338', { edge: '#15171a' }));
+        [30, 60, 100].forEach((zt) => bx(xl, 360, zt - 3, xh, 460, zt, '#dfe2e4', { edge: '#4a4f55' }));
+        label([X((xl + xh) / 2), 410, 104], `ชั้นวาง ${name}`, 'main');
+        return { dir, xFront };
+      }
+      const s1 = shelf('S1', 0, 40);
+      const s2 = shelf('S2', 240, 200);
+      if (A) label([X(120), 452, 1], 'Picking Aisle', 'main', 900);
+
+      // products by layout
+      const lay = LAYOUTS[o.layout];
+      const slotY = (sh, slot) => {
+        const leftLow = (sh === 1) === A; // S1 in A, S2 in B: left = low y
+        const isLeft = slot === 1 || slot === 3;
+        return (isLeft === leftLow) ? 385 : 435;
+      };
+      [[1, s1], [2, s2]].forEach(([sh, s]) => {
+        for (let slot = 1; slot <= 4; slot++) {
+          const code = lay[(sh - 1) * 4 + (slot - 1)];
+          const pr = PRODUCTS[code];
+          const z = slot <= 2 ? 30 : 60;
+          const yc = slotY(sh, slot);
+          const dd = pr.shape === 'cyl' ? 2 * pr.r : pr.d;
+          for (let k = (o.anim && A ? (o.anim.taken[code] || 0) : 0); k < 3; k++) {
+            const off = 5 + dd / 2 + k * (dd + 2.5);
+            const xc = s.xFront - s.dir * off;
+            placeProduct(code, X(xc), yc, z);
+          }
+          // shelf label on the front face
+          const zl = slot <= 2 ? 27 : 57;
+          const xf = s.xFront + s.dir * 0.5;
+          bx(s.xFront, yc - 6, zl, xf, yc + 6, zl + 3, C.label, { edge: '#b39c3a' });
+          const yq = (A === (sh === 1)) ? yc - 5.5 : yc + 3; // QR on the viewer's left
+          bx(xf, yq, zl + 0.3, s.xFront + s.dir * 0.8, yq + 2.5, zl + 2.8, C.qr, { edges: false });
+          if (A) label([X(s.xFront + s.dir * 4), yc, z + (pr.h || 0) + 6], `S${sh}-${slot} · ${code}`, 'detail', 520);
+        }
+      });
+
+      // delivery counter
+      jtable(140, 760); jtable(200, 760);
+      [170, 230].forEach((cx) => {
+        const xa = Math.min(X(cx - 22.5), X(cx + 22.5));
+        [[xa, 762.5, xa + 45, 763.5], [xa, 796.5, xa + 45, 797.5], [xa, 763.5, xa + 1, 796.5], [xa + 44, 763.5, xa + 45, 796.5]]
+          .forEach(([a, b, c, d]) => floorRectZ(a, b, c, d, C.yellow, 29.15));
+      });
+
+      // obstacles
+      OBST_PATTERNS[o.obst].forEach((k) => {
+        const [x, y] = OBST[k];
+        const xa2 = Math.min(X(x), X(x + 40));
+        const sh = (o.anim && A && o.anim.obst && o.anim.obst[k]) || null;
+        const bl = (o.anim && A && o.anim.ball && o.anim.ball[k]) || null;
+        const body = (x0, y0) => {
+          box(x0, y0, 0, x0 + 40, y0 + 50, 30, C.carton, { top: '#d8b37f', edge: '#7a5a32' });
+          box(x0 + 8, y0 - 0.4, 8, x0 + 32, y0, 10, '#5b4630', { edges: false });
+          box(x0 + 10, y0 - 0.4, 10, x0 + 30, y0, 22, '#e9d2ad', { edges: false });
+          cyl(x0 + 20, y0 + 25, 30, 0.7, 5, '#f4f1ea', { n: 8 });
+          if (!bl) cyl(x0 + 20, y0 + 25, 34.6, 2, 4, '#ff8a1e', { n: 12, edge: '#b65a0a' });
+        };
+        if (sh) withXF(xa2 + 20 + sh[0], y + 25 + sh[1], sh[2], () => body(-20, -25)); else body(xa2, y);
+        if (bl) cyl(bl[0], bl[1], bl[2], 2, 4, '#ff8a1e', { n: 12, edge: '#b65a0a' });
+      });
+      Object.entries(OBST).forEach(([k, [x, y]]) => {
+        const on = OBST_PATTERNS[o.obst].includes(k);
+        if (A) label([X(x + 20), y + 25, on ? 40 : 2], k, 'main', 900);
+      });
+
+      // labels
+      label([X(40), 40, 1], A ? 'START / RETRY A' : 'START / RETRY B', 'main');
+      if (A) {
+        label([X(170), 20, 50], 'Basket Station 1', 'main');
+        label([X(230), 20, 50], 'Station 2', 'main');
+        label([X(200), 95, 1], 'Basket Zone', 'main', 900);
+        label([X(1), 150, 34], 'Order Board', 'main');
+        label([X(40), 150, 1], 'Order Zone', 'main');
+        label([X(200), 785, 34], 'Delivery Counter (2 กรอบ)', 'main');
+        label([X(200), 700, 1], 'Delivery Zone', 'main', 900);
+        label([X(40), 1, 15], 'Ready Dock', 'main', 900);
+        label([X(90), -4, 45], 'ไฟ READY', 'main', 900);
+      }
+      label([X(200), -40, 0], A ? 'ฝั่ง A' : 'ฝั่ง B', 'side');
+
+      // basket(s) and robot
+      if (o.anim) {
+        if (!A) { basket(X(170), 20, 29, []); basket(X(230), 20, 29, []); }
+      } else if (A) {
+        if (o.state === 'picking') {
+          robot(118, 382, true);
+        } else {
+          robot(12, 12, false);
+          basket(X(170), 780, 29, ['P3', 'P7', 'P1', 'P5', 'P8']);
+        }
+        basket(X(230), 20, 29, []);
+      } else {
+        basket(X(170), 20, 29, []);
+        basket(X(230), 20, 29, []);
+      }
+
+      function robot(x0, y0, picking) {
+        // generic AMR for scale: 55 x 55 footprint. picking: faces +x (toward S2) with its arm out.
+        const x1 = x0 + 55, y1 = y0 + 55;
+        const R = (a, b, c, d, e, f, col, op) => bx(a, b, c, d, e, f, col, op);
+        R(x0 + 4, y0 + 2, 0, x0 + 14, y0 + 6, 8, '#22262b');
+        R(x0 + 41, y0 + 2, 0, x0 + 51, y0 + 6, 8, '#22262b');
+        R(x0 + 4, y1 - 6, 0, x0 + 14, y1 - 2, 8, '#22262b');
+        R(x0 + 41, y1 - 6, 0, x0 + 51, y1 - 2, 8, '#22262b');
+        R(x0, y0, 5, x1, y1, 28, C.robot, { top: C.robotLight });
+        cyl(X(x1 - 8), y0 + 27.5, 28, 4, 5, '#1d2125', { n: 14 });
+        // mast at the back (low-x side), display on its side facing -y
+        R(x0, y0 + 22, 28, x0 + 10, y0 + 33, 92, C.robotLight);
+        R(x0 + 1, y0 + 20, 66, x0 + 26, y0 + 22, 86, C.screen, { edge: '#0b1a26' });
+        if (picking) {
+          R(x0 + 10, y0 + 25, 36, x1 + 22, y0 + 30, 40, '#7d8792');
+          R(x1 + 22, y0 + 22, 33, x1 + 28, y0 + 33, 42, '#e0a12a');
+        } else {
+          R(x0 + 10, y0 + 25, 60, x1 - 10, y0 + 30, 64, '#7d8792');
+        }
+        basket(X(x0 + 32), y0 + 32, 28, picking ? ['P3', 'P1'] : []);
+        label([X(x0 + 27), y0 + 27, 96], 'หุ่นยนต์ตัวอย่าง (เทียบขนาด)', 'main');
+      }
+    }
+
+    function floorRectZ(x0, y0, x1, y1, col, z) { quad([x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z], col); }
+
+    function basket(cx, cy, z, items) {
+      const w = 32, d = 20, h = 18, t = 1;
+      const x0 = cx - w / 2, x1 = cx + w / 2, y0 = cy - d / 2, y1 = cy + d / 2;
+      box(x0, y0, z, x1, y1, z + 1.2, C.basket, { edge: '#1c5636' });
+      box(x0, y0, z, x1, y0 + t, z + h, C.basket, { edge: '#1c5636' });
+      box(x0, y1 - t, z, x1, y1, z + h, C.basket, { edge: '#1c5636' });
+      box(x0, y0 + t, z, x0 + t, y1 - t, z + h, C.basket, { edge: '#1c5636' });
+      box(x1 - t, y0 + t, z, x1, y1 - t, z + h, C.basket, { edge: '#1c5636' });
+      // folding carry handle, folded down along both long rims
+      box(x0 + 4, y0 - 1.2, z + h - 2, x1 - 4, y0, z + h, '#256f46', { edge: '#1c5636' });
+      box(x0 + 4, y1, z + h - 2, x1 - 4, y1 + 1.2, z + h, '#256f46', { edge: '#1c5636' });
+      const spots = [[-9, -4], [0, -4], [9, -4], [-5, 4.5], [5, 4.5]];
+      items.forEach((code, i) => {
+        const [dx, dy] = spots[i];
+        const pr = PRODUCTS[code];
+        if (pr.shape === 'cyl' && pr.h > 15) placeProductLying(code, cx + dx, cy + dy, z + 1.2);
+        else placeProduct(code, cx + dx, cy + dy, z + 1.2);
+      });
+    }
+
+    function placeProduct(code, x, y, z) {
+      const p = PRODUCTS[code];
+      if (p.shape === 'cyl') {
+        cyl(x, y, z, p.r, p.h - (p.cap ? 2 : 0), p.col, { n: 14 });
+        if (p.cap) cyl(x, y, z + p.h - 2, Math.max(1.2, p.r * 0.45), 2, p.cap, { n: 10 });
+      } else {
+        box(x - p.d / 2, y - p.w / 2, z, x + p.d / 2, y + p.w / 2, z + p.h, p.col);
+      }
+    }
+    function placeProductLying(code, x, y, z) {
+      const p = PRODUCTS[code];
+      box(x - p.h / 2, y - p.r, z, x + p.h / 2, y + p.r, z + 2 * p.r, p.col);
+    }
+
+    half('A');
+    half('B');
+    if (o.anim) dynamic(o.anim);
+
+    function dynamic(a) {
+      const tr = a.trail;
+      for (let i = 1; i < tr.length; i++) for (const d of [-0.5, 0, 0.5]) edge([tr[i - 1][0] + d, tr[i - 1][1] + d, 0.7], [tr[i][0] + d, tr[i][1] + d, 0.7], '#c0392b');
+      a.baskets.forEach((b) => withXF(b.x, b.y, b.h, () => basket(0, 0, b.z, b.items)));
+      const r = a.robot;
+      withXF(r.x, r.y, r.h, () => {
+        // example AMR 55 x 55, front = local +x
+        [[-22, -27], [12, -27], [-22, 23], [12, 23]].forEach(([wx, wy]) => box(wx, wy, 0, wx + 10, wy + 4, 8, '#22262b'));
+        box(-27.5, -27.5, 5, 27.5, 27.5, 28, C.robot, { top: C.robotLight });
+        box(27.5, -20, 9, 28.5, 20, 15, C.red, { edge: '#7a211c' });
+        cyl(20, 20, 28, 3.5, 4, '#1d2125', { n: 12 });
+        box(-27, -26, 28, -19, -18, 92, C.robotLight);
+        box(-19, -25, 74, -17.5, -19, 88, C.screen, { edge: '#0b1a26' });
+        const tip = 27.5 + r.ext;
+        box(-19, -23.5, r.az, tip - 3, -20.5, r.az + 3, '#7d8792');
+        box(tip - 3, -28, r.az - 2, tip - 1, -16, r.az + 5, '#e0a12a');
+        box(tip - 1, -28, r.az - 2, tip + 4, -27, r.az + 5, '#e0a12a');
+        box(tip - 1, -17, r.az - 2, tip + 4, -16, r.az + 5, '#e0a12a');
+      });
+      if (a.held) placeProduct(a.held.code, a.held.x, a.held.y, a.held.z);
+      (a.floor || []).forEach((f) => {
+        const p = PRODUCTS[f.code];
+        if (p.shape === 'cyl') box(f.x - p.h / 2, f.y - p.r, 0.3, f.x + p.h / 2, f.y + p.r, 2 * p.r, p.col);
+        else box(f.x - p.h / 2, f.y - p.w / 2, 0.3, f.x + p.h / 2, f.y + p.w / 2, p.d, p.col);
+      });
+      if (a.mark) {
+        const m = a.mark, n = 40, z = m.z || 0.9;
+        for (const dr of [0, 0.6, 1.2, 1.8]) for (let i = 0; i < n; i++) {
+          const a0 = 2 * Math.PI * i / n, a1 = 2 * Math.PI * (i + 1) / n, r = m.r + dr;
+          edge([m.x + r * Math.cos(a0), m.y + r * Math.sin(a0), z], [m.x + r * Math.cos(a1), m.y + r * Math.sin(a1), z], '#e0201b');
+        }
+      }
+      if (a.scan) {
+        const s = a.scan, G = '#19c37d';
+        const y0 = s.y - 8.4, y1 = s.y + 8.4, z0 = s.z - 1, z1 = s.z + 11.5, x = 1.4;
+        const cs = [[x, y0, z0], [x, y1, z0], [x, y1, z1], [x, y0, z1]];
+        for (let i = 0; i < 4; i++) { edge(cs[i], cs[(i + 1) % 4], G); edge(s.from, cs[i], G); }
+        const zz = z0 + (z1 - z0) * s.u;
+        edge([x, y0, zz], [x, y1, zz], G);
+      }
+      const keep = /^(START \/ RETRY A|Basket Station 1|Station 2|Order Board|ชั้นวาง S[12]|Delivery Counter|Ready Dock|ไฟ READY|O[1-4]|ฝั่ง [AB])/;
+      for (let i = labels.length - 1; i >= 0; i--) if (!keep.test(labels[i].text) || (labels[i].p[0] > 400 && labels[i].kind !== 'side')) labels.splice(i, 1);
+    }
+    return { tris, edges, labels };
+  }
+
+  root.SMField = { build, PRODUCTS, LAYOUTS, OBST, OBST_PATTERNS, ORDERS, COLORS: C };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>// Tiny software renderer: z-buffered flat-shaded triangles + depth-tested edges + occlusion-aware labels.
+(function (root) {
+  const NEAR = 2;
+  function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+  function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function norm(a) { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
+
+  function makeCamera(cam, W, H) {
+    const { target, yaw, pitch, dist, fov, ortho, scale } = cam;
+    let fwd, right, up, eye;
+    if (ortho && pitch >= 89.99) {
+      fwd = [0, 0, -1]; right = [1, 0, 0]; up = [0, 1, 0];
+      const r = (cam.roll || 0) * Math.PI / 180;
+      right = [Math.cos(r), Math.sin(r), 0]; up = [-Math.sin(r), Math.cos(r), 0];
+      eye = [target[0], target[1], 5000];
+    } else {
+      const y = yaw * Math.PI / 180, p = pitch * Math.PI / 180;
+      eye = [target[0] + dist * Math.cos(p) * Math.cos(y), target[1] + dist * Math.cos(p) * Math.sin(y), target[2] + dist * Math.sin(p)];
+      fwd = norm(sub(target, eye));
+      right = norm(cross(fwd, [0, 0, 1]));
+      up = cross(right, fwd);
+    }
+    const f = (H / 2) / Math.tan((fov || 40) * Math.PI / 360);
+    const s = scale || 1;
+    return {
+      eye, fwd, right, up, ortho: !!ortho,
+      view(p) { const d = sub(p, eye); return [dot(d, right), dot(d, up), dot(d, fwd)]; },
+      proj(v) { // v in view space -> [sx, sy, closeness]
+        if (this.ortho) return [W / 2 + v[0] * s, H / 2 - v[1] * s, 1e5 - v[2]];
+        return [W / 2 + f * v[0] / v[2], H / 2 - f * v[1] / v[2], 1 / v[2]];
+      },
+    };
+  }
+
+  function clipPoly(vs) { // clip polygon (view space) against z >= NEAR
+    const out = [];
+    for (let i = 0; i < vs.length; i++) {
+      const a = vs[i], b = vs[(i + 1) % vs.length];
+      const ain = a[2] >= NEAR, bin = b[2] >= NEAR;
+      if (ain) out.push(a);
+      if (ain !== bin) { const t = (NEAR - a[2]) / (b[2] - a[2]); out.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), NEAR]); }
+    }
+    return out;
+  }
+
+  function render(ctx, scene, cam, opts) {
+    opts = opts || {};
+    const W = ctx.canvas.width, H = ctx.canvas.height;
+    const C = makeCamera(cam, W, H);
+    const img = ctx.createImageData(W, H);
+    const buf = new Uint32Array(img.data.buffer);
+    const zb = new Float32Array(W * H);
+    const bg = opts.bg || [238, 241, 240];
+    const bgc = (255 << 24) | (bg[2] << 16) | (bg[1] << 8) | bg[0];
+    buf.fill(bgc);
+    zb.fill(-Infinity);
+    const L = norm([-0.45, -0.75, 0.9]);
+
+    function raster(p0, p1, p2, col) {
+      const minx = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0]))), maxx = Math.min(W - 1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
+      const miny = Math.max(0, Math.floor(Math.min(p0[1], p1[1], p2[1]))), maxy = Math.min(H - 1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
+      if (minx > maxx || miny > maxy) return;
+      const area = (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p1[1] - p0[1]) * (p2[0] - p0[0]);
+      if (Math.abs(area) < 1e-9) return;
+      const inv = 1 / area;
+      // edge function coefficients
+      const A0 = (p1[1] - p2[1]), B0 = (p2[0] - p1[0]), C0 = p1[0] * p2[1] - p2[0] * p1[1];
+      const A1 = (p2[1] - p0[1]), B1 = (p0[0] - p2[0]), C1 = p2[0] * p0[1] - p0[0] * p2[1];
+      const z0 = p0[2], z1 = p1[2], z2 = p2[2];
+      for (let y = miny; y <= maxy; y++) {
+        const py = y + 0.5;
+        let row = y * W;
+        for (let x = minx; x <= maxx; x++) {
+          const px = x + 0.5;
+          const w0 = (A0 * px + B0 * py + C0) * inv;
+          const w1 = (A1 * px + B1 * py + C1) * inv;
+          const w2 = 1 - w0 - w1;
+          if (w0 < -1e-7 || w1 < -1e-7 || w2 < -1e-7) continue;
+          const z = w0 * z0 + w1 * z1 + w2 * z2;
+          const i = row + x;
+          if (z > zb[i]) { zb[i] = z; buf[i] = col; }
+        }
+      }
+    }
+
+    for (const t of scene.tris) {
+      const vv = t.v.map((p) => C.view(p));
+      if (vv[0][2] < NEAR && vv[1][2] < NEAR && vv[2][2] < NEAR) continue;
+      let n = norm(cross(sub(t.v[1], t.v[0]), sub(t.v[2], t.v[0])));
+      const toEye = norm(sub(C.eye, t.v[0]));
+      if (C.ortho) { if (dot(n, C.fwd) > 0) n = [-n[0], -n[1], -n[2]]; }
+      else if (dot(n, toEye) < 0) n = [-n[0], -n[1], -n[2]];
+      const lam = Math.max(0, dot(n, L));
+      const k = 0.62 + 0.38 * lam + (n[2] > 0.9 ? 0.04 : 0);
+      const r = Math.min(255, t.c[0] * k) | 0, g = Math.min(255, t.c[1] * k) | 0, b = Math.min(255, t.c[2] * k) | 0;
+      const col = (255 << 24) | (b << 16) | (g << 8) | r;
+      const poly = (vv[0][2] >= NEAR && vv[1][2] >= NEAR && vv[2][2] >= NEAR) ? vv : clipPoly(vv);
+      if (poly.length < 3) continue;
+      const pp = poly.map((v) => C.proj(v));
+      for (let i = 1; i < pp.length - 1; i++) raster(pp[0], pp[i], pp[i + 1], col);
+    }
+
+    // edges (depth tested, slightly biased toward the viewer)
+    const lw = opts.lineWidth || 1;
+    for (const e of scene.edges) {
+      let a = C.view(e.a), b = C.view(e.b);
+      if (a[2] < NEAR && b[2] < NEAR) continue;
+      if (a[2] < NEAR || b[2] < NEAR) {
+        const t = (NEAR - a[2]) / (b[2] - a[2]);
+        const c = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), NEAR];
+        if (a[2] < NEAR) a = c; else b = c;
+      }
+      const pa = C.proj(a), pb = C.proj(b);
+      const dx = pb[0] - pa[0], dy = pb[1] - pa[1];
+      const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy))) + 1;
+      if (steps > 20000) continue;
+      const col = (255 << 24) | (e.c[2] << 16) | (e.c[1] << 8) | e.c[0];
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const x = pa[0] + dx * t, y = pa[1] + dy * t;
+        const z = pa[2] + (pb[2] - pa[2]) * t;
+        for (let oy = 0; oy < lw; oy++) for (let ox = 0; ox < lw; ox++) {
+          const xi = (x + ox - lw / 2 + 0.5) | 0, yi = (y + oy - lw / 2 + 0.5) | 0;
+          if (xi < 0 || yi < 0 || xi >= W || yi >= H) continue;
+          const i = yi * W + xi;
+          const bias = C.ortho ? 0.6 : z * 0.0035;
+          if (z + bias >= zb[i]) buf[i] = col;
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    return { C, zb, W, H };
+  }
+
+  function drawLabels(ctx, scene, cam, info, opts) {
+    opts = opts || {};
+    const W = ctx.canvas.width, H = ctx.canvas.height;
+    const k = info.W / W; // z-buffer is k times larger
+    const C = makeCamera(Object.assign({}, cam, { scale: (cam.scale || 1) / k }), W, H);
+    const zb = info.zb;
+    const zAt = (x, y) => { const xi = Math.min(info.W - 1, Math.max(0, Math.round(x * k))), yi = Math.min(info.H - 1, Math.max(0, Math.round(y * k))); return zb[yi * info.W + xi]; };
+    {
+      const dpr = opts.dpr || 1;
+      const placed = [];
+      const items = [];
+      for (const l of scene.labels) {
+        if (!C.ortho && cam.dist > l.maxDist) continue;
+        if (C.ortho && l.kind === 'detail' && (cam.scale || 1) / k < (opts.detailScale || 3)) continue;
+        if (opts.only && !opts.only.includes(l.kind)) continue;
+        const v = C.view(l.p);
+        if (v[2] < NEAR) continue;
+        const p = C.proj(v);
+        if (p[0] < 0 || p[1] < 0 || p[0] >= W || p[1] >= H) continue;
+        // occlusion test around the anchor
+        let vis = false;
+        for (let oy = -2; oy <= 2 && !vis; oy++) for (let ox = -2; ox <= 2 && !vis; ox++) {
+          const xi = Math.round(p[0]) + ox, yi = Math.round(p[1]) + oy;
+          if (xi < 0 || yi < 0 || xi >= W || yi >= H) continue;
+          const zz = zAt(xi, yi);
+          const tol = C.ortho ? 3 : p[2] * 0.03;
+          if (zz === -Infinity || p[2] + tol >= zz) vis = true;
+        }
+        if (!vis) continue;
+        items.push({ l, p });
+      }
+      items.sort((a, b) => b.p[2] - a.p[2]);
+      const font = opts.font || '"IBM Plex Sans Thai", "Sarabun", "Loma", sans-serif';
+      for (const { l, p } of items) {
+        const side = l.kind === 'side';
+        const fs = (side ? 15 : l.kind === 'detail' ? 11 : 12) * dpr;
+        ctx.font = `${side ? 700 : 600} ${fs}px ${font}`;
+        const tw = ctx.measureText(l.text).width;
+        const padX = 6 * dpr, h = fs + 8 * dpr;
+        let lift = side ? 0 : (l.kind === 'detail' ? 16 : 26) * dpr;
+        let bx, by, ok = false;
+        for (let tries = 0; tries < 6; tries++) {
+          bx = p[0] - tw / 2 - padX; by = p[1] - lift - h;
+          const r = [bx, by, bx + tw + 2 * padX, by + h];
+          if (!placed.some((q) => !(r[2] < q[0] || r[0] > q[2] || r[3] < q[1] || r[1] > q[3]))) { ok = true; placed.push(r); break; }
+          lift += h + 3 * dpr;
+        }
+        if (!ok) continue;
+        if (!side) {
+          ctx.strokeStyle = opts.leader || 'rgba(30,34,38,0.75)';
+          ctx.lineWidth = 1.2 * dpr;
+          ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(p[0], by + h); ctx.stroke();
+          ctx.fillStyle = opts.leader || 'rgba(30,34,38,0.85)';
+          ctx.beginPath(); ctx.arc(p[0], p[1], 2.2 * dpr, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = side ? 'rgba(0,0,0,0)' : (l.kind === 'detail' ? (opts.detailBg || 'rgba(255,248,214,0.96)') : (opts.labelBg || 'rgba(255,255,255,0.94)'));
+        roundRect(ctx, bx, by, tw + 2 * padX, h, 5 * dpr); ctx.fill();
+        if (!side) { ctx.strokeStyle = opts.labelBorder || 'rgba(40,44,48,0.35)'; ctx.lineWidth = 1 * dpr; ctx.stroke(); }
+        ctx.fillStyle = side ? (opts.sideInk || '#22262a') : '#1d2124';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(l.text, bx + padX, by + h / 2 + 0.5 * dpr);
+      }
+    }
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  root.SMRender = { render, drawLabels, makeCamera };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+(function () {
+  const qs = new URLSearchParams(location.search);
+  const $ = (id) => document.getElementById(id);
+  const P = SMField.PRODUCTS, LAY = SMField.LAYOUTS.L1, ORD = SMField.ORDERS.A;
+  const lerp = (a, b, u) => a + (b - a) * u;
+  const ease = (u) => u * u * (3 - 2 * u);
+  const rot = (h, x, y) => { const r = h * Math.PI / 180; return [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)]; };
+
+  // ---------- where each product sits (side A, layout L1) ----------
+  function slotOf(code) {
+    const i = LAY.indexOf(code), sh = i < 4 ? 1 : 2, slot = (i % 4) + 1;
+    const left = slot === 1 || slot === 3;
+    const y = sh === 1 ? (left ? 385 : 435) : (left ? 435 : 385);
+    return { sh, slot, y, z: slot <= 2 ? 30 : 60 };
+  }
+  function unitX(code, k) {
+    const p = P[code], dd = p.shape === 'cyl' ? 2 * p.r : p.d, off = 5 + dd / 2 + k * (dd + 2.5), s = slotOf(code);
+    return s.sh === 1 ? 40 - off : 200 + off;
+  }
+
+  // ---------- timeline ----------
+  const T = [], chapters = [];
+  let total = 0;
+  const plan = { x: 40, y: 27.5, h: 90, taken: {} };
+  function seg(dur, fn) { T.push({ t0: total, dur, fn }); total += dur; }
+  const ev = (fn) => seg(0, fn);
+  const wait = (d) => seg(d, () => {});
+  function chapter(title, step, cam, chip) { const i = chapters.length; chapters.push({ t: total, title, step, chip }); ev((s) => { s.chapter = i; s.cam = cam; }); }
+  const cap = (text) => ev((s) => { s.cap = text; });
+  const cam = (name) => ev((s) => { s.cam = name; });
+  const score = (key, val, toast) => { const t0 = total; ev((s) => { s.score[key] = val; if (toast) s.toast = { text: toast, t: t0 }; }); };
+  function turn(h1) {
+    const h0 = plan.h; let d = ((h1 - h0 + 540) % 360) - 180;
+    if (Math.abs(d) < 1) return;
+    seg(Math.max(0.35, Math.abs(d) / 170), (s, u) => { s.robot.h = h0 + d * ease(u); });
+    plan.h = h0 + d;
+  }
+  function go(x, y, opt) {
+    opt = opt || {};
+    const x0 = plan.x, y0 = plan.y, dist = Math.hypot(x - x0, y - y0);
+    if (!opt.keepHeading) turn(Math.atan2(y - y0, x - x0) * 180 / Math.PI);
+    seg(dist / (opt.speed || 125), (s, u) => { s.robot.x = lerp(x0, x, u); s.robot.y = lerp(y0, y, u); if (u >= 1) s.trail.push([x, y]); });
+    plan.x = x; plan.y = y;
+  }
+  function mount(r) { const [dx, dy] = rot(r.h, 6, 2); return { x: r.x + dx, y: r.y + dy, z: 28, h: r.h + 90 }; }
+  function load(i) {
+    const sx = i === 0 ? 170 : 230;
+    seg(1.5, (s, u) => { const m = mount(s.robot), e = ease(u), b = s.baskets[i]; b.x = lerp(sx, m.x, e); b.y = lerp(20, m.y, e); b.z = lerp(29, 28, e) + 16 * Math.sin(Math.PI * e); b.h = 0; s.robot.ext = 14 * Math.sin(Math.PI * e); s.robot.az = 50; });
+    ev((s) => { s.carry = i; s.robot.ext = 0; s.robot.az = 60; });
+  }
+  function deliver(i) {
+    const fx = i === 0 ? 170 : 230;
+    ev((s) => { s.carry = -1; });
+    seg(1.7, (s, u) => { const m = mount(s.robot), e = ease(u), b = s.baskets[i]; b.x = lerp(m.x, fx, e); b.y = lerp(m.y, 780, e); b.z = lerp(28, 29, e) + 16 * Math.sin(Math.PI * e); b.h = 0; s.robot.ext = 14 * Math.sin(Math.PI * e); s.robot.az = 50; });
+    ev((s) => { s.baskets[i].x = fx; s.baskets[i].y = 780; s.baskets[i].z = 29; s.delivered[i] = true; s.robot.ext = 0; s.robot.az = 60; });
+  }
+  function read(row) {
+    for (let i = 0; i < 5; i++) {
+      seg(0.7, (s, u) => { s.scan = { y: 110 + 20 * i, z: row === 0 ? 17 : 3, u }; });
+      ev((s) => { s.scan = null; s.read[row] = i + 1; });
+      if (row === 0) score('j1r', 5 * (i + 1), i === 4 ? '+25 อ่านใบคำสั่งซื้อครบ 5 ใบ' : null);
+    }
+  }
+  function gotoShelf(code) {
+    const sl = slotOf(code);
+    if (sl.sh === 1) { go(97, sl.y - 22); turn(180); } else { go(143, sl.y + 22); turn(0); }
+  }
+  function pick(code, job) {
+    const sl = slotOf(code), k = plan.taken[code] || 0; plan.taken[code] = k + 1;
+    const ux = unitX(code, k), reach = Math.abs(ux - plan.x) - 27.5, az = sl.z + Math.min(8, P[code].h * 0.5);
+    const tipPos = (r) => { const [dx, dy] = rot(r.h, 27.5 + r.ext, -22); return [r.x + dx, r.y + dy]; };
+    seg(0.8, (s, u) => { const e = ease(u); s.robot.az = lerp(60, az, Math.min(1, e * 2)); s.robot.ext = reach * Math.max(0, e * 2 - 1); });
+    ev((s) => { s.taken[code] = k + 1; s.held = { code, x: ux, y: sl.y, z: sl.z }; s.robot.az = az; s.robot.ext = reach; });
+    seg(0.7, (s, u) => { s.robot.ext = reach * (1 - ease(u)); const t = tipPos(s.robot); s.held = { code, x: t[0], y: t[1], z: sl.z + 1 }; });
+    seg(0.6, (s, u) => { const e = ease(u), t = tipPos(s.robot), m = mount(s.robot); s.held = { code, x: lerp(t[0], m.x, e), y: lerp(t[1], m.y, e), z: lerp(sl.z + 1, 30, e) + 14 * Math.sin(Math.PI * e) }; s.robot.az = lerp(az, 60, e); });
+    ev((s) => { s.held = null; s.robot.az = 60; s.baskets[job].items.push(code); });
+  }
+  function toCounter(i) { go(150, 500); go(200, 548); go(200, 640); go(i === 0 ? 170 : 230, 715); turn(90); }
+  function toStart() { go(200, 640); go(200, 548); go(150, 495); go(120, 430); go(120, 200); go(40, 95); turn(90); go(40, 27.5, { keepHeading: true, speed: 60 }); }
+
+  function fresh() {
+    return { robot: { x: 40, y: 27.5, h: 90, ext: 0, az: 60 }, baskets: [{ x: 170, y: 20, z: 29, h: 0, items: [] }, { x: 230, y: 20, z: 29, h: 0, items: [] }],
+      carry: -1, delivered: [false, false], taken: {}, held: null, scan: null, lamp: false, cover2: false, trail: [[40, 27.5]], score: {}, read: [0, 0], chapter: 0, cap: '', cam: 'wide', toast: null,
+      vig: false, pen: [], obst: {}, ball: {}, floor: [], mark: null, note: '' };
+  }
+  const pen = (text, pts, toast) => { const t0 = total; ev((s) => { s.pen.push({ text, pts }); s.toast = { text: toast, t: t0, bad: true }; }); };
+  function vignette(title, n, camName, chip, robot, setup) {
+    chapter(title, 'ตัวอย่างการทำผิด ' + n + '/4', camName, chip);
+    ev((s) => { const ch = s.chapter, cm = s.cam; Object.assign(s, fresh()); s.chapter = ch; s.cam = cm; s.vig = true; Object.assign(s.robot, robot); if (setup) setup(s); s.trail = [[s.robot.x, s.robot.y]]; });
+    plan.x = robot.x; plan.y = robot.y; plan.h = robot.h; plan.taken = {};
+  }
+
+  // --- script ---
+  chapter('ก่อนเริ่ม: Setup และการสุ่ม', 'เตรียมสนาม', 'wide');
+  cap('ทีมมีเวลา Setup 1 นาที แก้โปรแกรมได้เฉพาะช่วงนี้ จากนั้นกรรมการสุ่มผังสินค้า ใบคำสั่งซื้อ และจุดวางกล่องรถเข็น 2 จุด (ตัวอย่างนี้คือ O3 และ O4) หลังสุ่มแล้วห้ามป้อนข้อมูลใด ๆ ให้หุ่นยนต์');
+  wait(5);
+
+  chapter('ภารกิจ 1: รับตะกร้า', 'งานที่ 1 · ขั้น 1/5', 'start');
+  cap('หุ่นยนต์ออกจาก START แบบอัตโนมัติ ไปที่แท่นวางตะกร้า 1 แล้วยกตะกร้าขึ้นไว้บนตัวหุ่นยนต์');
+  go(40, 75); go(170, 75); turn(-90); load(0);
+  score('j1b', 20, '+20 รับตะกร้าไว้บนหุ่นยนต์');
+  wait(0.8);
+
+  chapter('ภารกิจ 2: อ่านใบคำสั่งซื้อ 5 ใบ', 'งานที่ 1 · ขั้น 2/5', 'order');
+  cap('หุ่นยนต์เข้า Order Zone แล้วอ่านใบคำสั่งซื้อแถวบนทีละใบ ได้ใบละ 5 คะแนน แถวล่างของงานที่ 2 ยังมีฝาปิดอยู่ จึงตั้งค่าล่วงหน้าไม่ได้');
+  go(60, 110); go(52, 150); turn(180); read(0);
+  wait(0.6);
+
+  chapter('ภารกิจ 3: หยิบสินค้าใส่ตะกร้า', 'งานที่ 1 · ขั้น 3/5', 'shelf');
+  cap('หุ่นยนต์ไปที่ชั้นวาง S1 และ S2 หยิบสินค้าตามใบคำสั่งซื้อทีละชิ้นใส่ตะกร้า ขั้นนี้ยังไม่ได้คะแนน เพราะคะแนนสินค้านับเมื่อตะกร้าไปถึงเคาน์เตอร์แล้วเท่านั้น');
+  go(97, 300);
+  ['P1', 'P3', 'P5', 'P8', 'P7'].forEach((c, i) => { gotoShelf(c); pick(c, 0); if (i === 1) cap('หยิบเบา ๆ ทีละชิ้น ถ้าสินค้าฉีก แตก รั่ว หรือขนมถุงพองลมแบน จะถูกหัก 10 คะแนนต่อชิ้น และสินค้าที่ตกค้างบนพื้นหัก 5 คะแนนต่อชิ้น'); });
+  wait(0.5);
+
+  chapter('ภารกิจ 4: ส่งตะกร้าที่เคาน์เตอร์', 'งานที่ 1 · ขั้น 4/5', 'wide');
+  cap('หุ่นยนต์ต้องผ่านกล่องรถเข็นลูกค้าโดยไม่ชน ถ้าลูกปิงปองบนกล่องหล่น หรือกล่องล้ำกรอบเทปเหลืองดำ จะถูกหักจุดละ 10 คะแนน กรรมการตรวจหลังจบรอบ');
+  go(150, 500); go(200, 548); go(200, 640);
+  cam('counter');
+  go(170, 715); turn(90);
+  cap('วางตะกร้าลงในกรอบที่ 1 บนเคาน์เตอร์ เมื่อวางแล้วกรรมการจึงนับสินค้าในตะกร้า ชิ้นที่ถูกได้ 15 คะแนน ชิ้นที่ผิดหัก 10 คะแนน');
+  deliver(0);
+  score('j1d', 30, '+30 ส่งตะกร้าในกรอบ');
+  wait(0.9);
+  score('j1p', 75, '+75 สินค้าถูกต้อง 5 ชิ้น');
+  wait(0.9);
+  score('j1c', 20, '+20 ครบทั้ง 5 รายการ');
+  wait(1);
+
+  chapter('ภารกิจ 5: กลับ START และแตะ Ready Dock', 'งานที่ 1 · ขั้น 5/5', 'wide');
+  cap('หุ่นยนต์กลับมาจอดในพื้นที่ START เพื่อรอรับงานใหม่ แล้วถอยให้หน้าสัมผัสแตะแถบทองแดงของ Ready Dock');
+  go(200, 640); go(200, 548); go(150, 495); go(120, 430); go(120, 200);
+  cam('start');
+  go(40, 95); turn(90);
+  score('j1s', 15, '+15 กลับถึง START');
+  go(40, 27.5, { keepHeading: true, speed: 60 });
+  ev((s) => { s.lamp = true; });
+  score('j1k', 15, '+15 ไฟ READY ติด · จบงานที่ 1 (200 คะแนน)');
+  wait(0.7);
+
+  chapter('งานที่ 2: รับงานใหม่ต่อเนื่องทันที', 'งานที่ 2 · โบนัส', 'start');
+  cap('ไฟ READY ติด = จบงานที่ 1 (200 คะแนน) กรรมการเปิดฝาแถวล่างของ Order Board ทันที และหุ่นยนต์ออกไปรับตะกร้าใบที่ 2 ต่อได้เลยโดยไม่ต้องหยุดรอและไม่มีใครแตะ งานที่ 2 ได้โบนัสเฉพาะทีมที่ไม่ถูกหักคะแนนความเสียหายเลย');
+  ev((s) => { s.cover2 = true; s.lamp = false; });
+  go(40, 75); go(230, 75); turn(-90); load(1);
+  cap('งานที่ 2 ใช้ตะกร้าใบที่ 2 จากแท่นที่ 2 แล้วอ่านใบคำสั่งซื้อแถวล่างที่เพิ่งเปิด');
+  cam('order');
+  go(60, 110); go(52, 150); turn(180); read(1);
+  cam('shelf');
+  cap('หยิบสินค้าชุดใหม่ 5 ชิ้น ชิ้นที่ถูกได้ชิ้นละ 10 คะแนน และนับเมื่อตะกร้าถึงเคาน์เตอร์เช่นเดิม');
+  go(97, 300);
+  ['P1', 'P6', 'P5', 'P2', 'P4'].forEach((c) => { gotoShelf(c); pick(c, 1); });
+  cam('wide');
+  go(150, 500); go(200, 548); go(200, 640);
+  cam('counter');
+  go(230, 715); turn(90);
+  cap('ส่งตะกร้าใบที่ 2 ลงในกรอบที่ 2 ข้างตะกร้าใบแรก');
+  deliver(1);
+  score('j2d', 20, '+20 ส่งตะกร้าใบที่ 2');
+  wait(0.8);
+  score('j2p', 50, '+50 สินค้าถูกต้อง 5 ชิ้น');
+  wait(0.8);
+  score('j2c', 10, '+10 ครบทั้ง 5 รายการ');
+  wait(0.8);
+  cam('wide');
+  cap('กลับ START และแตะ Ready Dock อีกครั้งเพื่อจบงานที่ 2');
+  go(200, 640); go(200, 548); go(150, 495); go(120, 430); go(120, 200);
+  cam('start');
+  go(40, 95); turn(90); go(40, 27.5, { keepHeading: true, speed: 60 });
+  ev((s) => { s.lamp = true; });
+  score('j2s', 20, '+20 กลับ START และไฟ READY ติด');
+  wait(1.8);
+
+  chapter('จบรอบ: ตรวจความเสียหาย', 'หลังหมดเวลา', 'wide');
+  cap('กรรมการเดินตรวจหลักฐานที่เห็นได้ชัดตามข้อ 6.6 ได้แก่ สินค้าเสียหาย ของตกพื้น ลูกปิงปองหล่น กล่องล้ำกรอบ และอุปกรณ์ขยับพ้นแนวเทป ถ้าไม่แน่ใจให้ถือว่าไม่ผิด รอบตัวอย่างนี้ไม่มีความเสียหาย จึงได้เต็ม 300 คะแนน');
+  wait(7);
+  const MAIN_END = chapters[chapters.length - 1].t;
+
+  // ---------- foul examples ----------
+  vignette('ทำผิด 1: ชนกล่องรถเข็นลูกค้า', 1, 'obst', 'ผิด 1: ชนกล่องรถเข็น', { x: 150, y: 470, h: 90 }, (s) => {
+    s.baskets[0].items = ['P3', 'P7', 'P1', 'P5', 'P8']; s.carry = 0; s.score = { j1b: 20, j1r: 25 }; s.read = [5, 0]; s.taken = { P3: 1, P7: 1, P1: 1, P5: 1, P8: 1 };
+  });
+  cap('หุ่นยนต์รีบไปส่งตะกร้าและวิ่งชิดกล่องรถเข็น O3 เกินไป');
+  wait(1.6);
+  go(160, 525, { speed: 170 });
+  seg(0.9, (s, u) => {
+    s.robot.x = lerp(160, 163, u); s.robot.y = lerp(525, 612, u);
+    const k = ease(Math.min(1, Math.max(0, (u - 0.2) / 0.5))), kb = Math.min(1, Math.max(0, (u - 0.3) / 0.6));
+    s.obst.O3 = [-12 * k, 5 * k, 9 * k];
+    s.ball.O3 = [lerp(120, 134, kb), lerp(585, 547, kb), 34.6 * (1 - kb * kb)];
+    if (u >= 1) s.trail.push([163, 612]);
+  });
+  plan.x = 163; plan.y = 612;
+  ev((s) => { s.mark = { x: 116, y: 582, r: 50 }; });
+  pen('ลูกปิงปองหล่นจากกล่องรถเข็น', -10, '−10 ลูกปิงปองหล่น');
+  wait(1.4);
+  pen('กล่องล้ำกรอบเทปเหลืองดำ', -10, '−10 กล่องล้ำกรอบ');
+  cap('การชนไม่บังคับ Retry หุ่นยนต์ทำงานต่อได้ แต่หลังจบรอบกรรมการตรวจหลักฐานที่เห็นชัด: ลูกปิงปองอยู่บนพื้น หัก 10 และกล่องล้ำกรอบเหลืองดำ หัก 10');
+  ev((s) => { s.note = 'ทีมที่ถูกหักคะแนนความเสียหาย จะไม่ได้คะแนนโบนัสของงานที่ 2'; });
+  wait(6);
+
+  vignette('ทำผิด 2: ทำสินค้าตกพื้น', 2, 'shelf', 'ผิด 2: สินค้าตกพื้น', { x: 143, y: 407, h: 0 }, (s) => {
+    s.baskets[0].items = ['P3', 'P1']; s.carry = 0; s.score = { j1b: 20, j1r: 25 }; s.read = [5, 0]; s.taken = { P3: 1, P1: 1 };
+  });
+  cap('หุ่นยนต์หยิบขนมถุงพองลม (P5) จากชั้นบนของ S2 แล้วดึงกลับเร็วเกินไป');
+  wait(1.4);
+  seg(0.7, (s, u) => { const e = ease(u); s.robot.az = lerp(60, 68, Math.min(1, e * 2)); s.robot.ext = 36.5 * Math.max(0, e * 2 - 1); });
+  ev((s) => { s.taken.P5 = 1; s.held = { code: 'P5', x: 207, y: 385, z: 60 }; });
+  seg(0.3, (s, u) => { s.robot.ext = lerp(36.5, 16, u); s.held = { code: 'P5', x: 143 + 27.5 + s.robot.ext, y: 385, z: 61 }; });
+  seg(0.45, (s, u) => { s.held = { code: 'P5', x: lerp(186.5, 183, u), y: 385, z: lerp(61, 1, u * u) }; });
+  ev((s) => { s.held = null; s.floor.push({ code: 'P5', x: 181, y: 385 }); s.mark = { x: 181, y: 385, r: 16 }; });
+  seg(0.5, (s, u) => { s.robot.ext = lerp(16, 0, u); s.robot.az = lerp(68, 60, u); });
+  pen('สินค้าตกค้างบนพื้น 1 ชิ้น', -5, '−5 สินค้าตกพื้น');
+  cap('สินค้าที่ตกค้างบนพื้นเมื่อจบรอบ หักชิ้นละ 5 คะแนน ถ้าถุงฉีกหรือแบนด้วย หักอีก 10 คะแนน และถ้าของที่ล้มขวางทางจนทำงานต่อไม่ได้ กรรมการจะสั่ง Retry');
+  ev((s) => { s.note = 'ทีมที่ถูกหักคะแนนความเสียหาย จะไม่ได้คะแนนโบนัสของงานที่ 2'; });
+  wait(6);
+
+  vignette('ทำผิด 3: หยิบสินค้าผิดชนิด', 3, 'counter', 'ผิด 3: หยิบผิดชนิด', { x: 170, y: 715, h: 90 }, (s) => {
+    s.baskets[0].items = ['P3', 'P7', 'P1', 'P5', 'P2']; s.carry = 0; s.score = { j1b: 20, j1r: 25 }; s.read = [5, 0]; s.taken = { P3: 1, P7: 1, P1: 1, P5: 1, P2: 1 };
+  });
+  cap('ใบคำสั่งซื้อต้องการซอสปรุงรส (P8) แต่หุ่นยนต์หยิบนม UHT (P2) ใส่ตะกร้ามาแทน');
+  wait(1.6);
+  deliver(0);
+  score('j1d', 30, '+30 ส่งตะกร้าในกรอบ');
+  wait(0.9);
+  score('j1p', 60, '+60 สินค้าถูกต้อง 4 ชิ้น');
+  wait(0.9);
+  pen('สินค้าผิดชนิด 1 ชิ้น (P2 แทน P8)', -10, '−10 สินค้าผิดชนิด');
+  cap('กรรมการนับสินค้าเมื่อตะกร้าอยู่บนเคาน์เตอร์: ถูก 4 ชิ้นได้ 60 คะแนน ชิ้นที่ผิดหัก 10 คะแนน และไม่ได้คะแนน "ครบทั้ง 5 รายการ"');
+  wait(6);
+
+  vignette('ทำผิด 4: ล้ำแดน ถูกสั่ง Retry', 4, 'div', 'ผิด 4: ล้ำแดน → Retry', { x: 40, y: 27.5, h: 90 });
+  cap('หุ่นยนต์หลงทาง วิ่งเลยแท่นวางตะกร้าไปจนชิดแนวกั้นกลาง แล้วยื่นแขนข้ามไปฝั่ง B');
+  go(40, 75); go(345, 75, { speed: 170 });
+  seg(0.8, (s, u) => { s.robot.ext = 36 * ease(u); });
+  ev((s) => { s.mark = { x: 402, y: 53, r: 20, z: 31 }; });
+  pen('ล้ำแดนฝั่งตรงข้าม: บังคับ Retry', 'Retry', 'กรรมการสั่ง Retry');
+  wait(1.8);
+  cap('การล้ำแดน ของล้มขวางทาง การแตะหุ่นยนต์ และการเคลื่อนที่อันตราย ต้อง Retry: ทีมนำหุ่นยนต์กลับ START ใช้ได้เฉพาะ RESET, START, Emergency และสวิตช์เลือกภารกิจ ห้ามป้อนโปรแกรมหรือข้อมูลใหม่ ฝ่าฝืนถูกตัดสิทธิ์รอบนั้น');
+  ev((s) => { s.mark = null; s.note = 'จำนวนครั้งที่ Retry ใช้ตัดสินเมื่อคะแนนเท่ากัน (Retry น้อยกว่าชนะ)'; });
+  seg(1.6, (s, u) => { const e = ease(u); s.robot.x = lerp(345, 40, e); s.robot.y = lerp(75, 27.5, e); s.robot.h = lerp(0, 90, e); s.robot.ext = 36 * (1 - Math.min(1, u * 3)); s.trail = [[s.robot.x, s.robot.y]]; });
+  wait(7);
+  const END = total;
+  const CLOCK_K = 385 / MAIN_END; // film seconds -> match seconds (about 6:25 of the 7:00 used)
+
+  function stateAt(t) {
+    const s = fresh();
+    for (const g of T) {
+      if (t >= g.t0 + g.dur) g.fn(s, 1);
+      else if (t >= g.t0) { g.fn(s, (t - g.t0) / g.dur); break; }
+      else break;
+    }
+    if (s.carry >= 0) Object.assign(s.baskets[s.carry], mount(s.robot));
+    s.trail.push([s.robot.x, s.robot.y]);
+    if (s.trail.length > 14) s.trail = s.trail.slice(-14); // show only the recent path
+    if (s.scan) { const [dx, dy] = rot(s.robot.h, -18, -22); s.scan.from = [s.robot.x + dx, s.robot.y + dy, 81]; }
+    return s;
+  }
+
+  // ---------- cameras ----------
+  const CAMS = {
+    wide: { target: [205, 365, 0], yaw: -128, pitch: 47, dist: 1260, fov: 40 },
+    start: { target: [125, 62, 14], yaw: 58, pitch: 38, dist: 560, fov: 40 },
+    order: { target: [30, 150, 14], yaw: 64, pitch: 33, dist: 430, fov: 40 },
+    shelf: { target: [120, 405, 38], yaw: -90, pitch: 36, dist: 520, fov: 44 },
+    counter: { target: [200, 722, 18], yaw: -102, pitch: 40, dist: 520, fov: 40 },
+    obst: { target: [135, 585, 10], yaw: -75, pitch: 44, dist: 440, fov: 40 },
+    div: { target: [270, 70, 10], yaw: -100, pitch: 40, dist: 560, fov: 40 },
+    top: { target: [200, 400, 0], yaw: -90, pitch: 90, ortho: true, scale: 1 },
+  };
+  let camMode = qs.get('cam') || 'auto';
+  let camCur = null, camName = '';
+  function camStep(want, dt, snap) {
+    const w = CAMS[want];
+    if (w.ortho || !camCur || camCur.ortho || snap) { camCur = JSON.parse(JSON.stringify(w)); return; }
+    const k = 1 - Math.exp(-dt * 2.6);
+    for (let i = 0; i < 3; i++) camCur.target[i] = lerp(camCur.target[i], w.target[i], k);
+    const dy = ((w.yaw - camCur.yaw + 540) % 360) - 180;
+    camCur.yaw += dy * k; camCur.pitch = lerp(camCur.pitch, w.pitch, k); camCur.dist = lerp(camCur.dist, w.dist, k); camCur.fov = lerp(camCur.fov, w.fov, k);
+  }
+
+  // ---------- score sheet ----------
+  const ROWS = [
+    ['sc1', 'j1b', 'รับตะกร้าขึ้นหุ่นยนต์', 20],
+    ['sc1', 'j1r', 'อ่านใบคำสั่งซื้อ (5 × 5)', 25],
+    ['sc1', 'j1p', 'สินค้าถูกต้องในตะกร้า (15 × 5)', 75],
+    ['sc1', 'j1d', 'ส่งตะกร้าในกรอบเคาน์เตอร์', 30],
+    ['sc1', 'j1c', 'ครบทั้ง 5 รายการ', 20],
+    ['sc1', 'j1s', 'กลับถึง START', 15],
+    ['sc1', 'j1k', 'ไฟ READY ติด', 15],
+    ['sc2', 'j2p', 'สินค้าถูกต้องในตะกร้า (10 × 5)', 50],
+    ['sc2', 'j2d', 'ส่งตะกร้าใบที่ 2', 20],
+    ['sc2', 'j2c', 'ครบทั้ง 5 รายการ', 10],
+    ['sc2', 'j2s', 'กลับ START + ไฟ READY', 20],
+  ];
+  const rowEl = {};
+  ROWS.forEach(([ul, key, text, max]) => {
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="mk">○</span><span class="tx"></span><span class="pt"></span>';
+    li.querySelector('.tx').textContent = text;
+    $(ul).appendChild(li); rowEl[key] = { li, max, text };
+  });
+  let lastUI = '';
+  function updateUI(s, t) {
+    const sig = JSON.stringify([s.score, s.chapter, s.cap, s.baskets[0].items.length, s.baskets[1].items.length, s.delivered, s.pen, s.note]);
+    if (sig !== lastUI) {
+      lastUI = sig;
+      let sum = 0;
+      for (const key in rowEl) {
+        const { li, max, text } = rowEl[key], v = s.score[key] || 0; sum += v;
+        li.className = v >= max ? 'done' : v > 0 ? 'part' : '';
+        li.querySelector('.mk').textContent = v >= max ? '✓' : '○';
+        li.querySelector('.pt').textContent = v + '/' + max;
+        const job = key === 'j1p' ? 0 : key === 'j2p' ? 1 : -1;
+        let extra = '';
+        if (job >= 0 && !s.delivered[job] && s.baskets[job].items.length) extra = 'ในตะกร้า ' + s.baskets[job].items.length + '/5 ชิ้น · ยังไม่นับคะแนน';
+        const tx = li.querySelector('.tx'); tx.textContent = text;
+        if (extra) { const sm = document.createElement('small'); sm.textContent = extra; tx.appendChild(sm); }
+      }
+      $('penBox').hidden = !s.pen.length;
+      const ul = $('sc3'); ul.textContent = '';
+      s.pen.forEach((q) => { const li = document.createElement('li'); li.className = 'pen'; li.innerHTML = '<span class="mk">✕</span><span class="tx"></span><span class="pt"></span>'; li.querySelector('.tx').textContent = q.text; li.querySelector('.pt').textContent = typeof q.pts === 'number' ? '−' + Math.abs(q.pts) : q.pts; ul.appendChild(li); if (typeof q.pts === 'number') sum += q.pts; });
+      $('note').textContent = s.note || 'คะแนนสินค้าจะนับก็ต่อเมื่อตะกร้าวางอยู่ในกรอบบนเคาน์เตอร์แล้วเท่านั้น';
+      $('total').textContent = sum;
+      $('step').textContent = chapters[s.chapter].step;
+      $('chTitle').textContent = chapters[s.chapter].title;
+      $('cap').textContent = s.cap;
+      document.querySelectorAll('#chips button').forEach((b, i) => b.setAttribute('aria-pressed', String(i === s.chapter)));
+    }
+    const left = Math.max(0, 420 - Math.min(t, MAIN_END) * CLOCK_K);
+    const started = t >= chapters[1].t;
+    $('clock').textContent = s.vig ? '–:––' : started ? Math.floor(left / 60) + ':' + String(Math.floor(left % 60)).padStart(2, '0') : '7:00';
+    const tw = $('toast'), on = s.toast && t - s.toast.t < 1.7;
+    tw.classList.toggle('on', !!on); if (on) { tw.textContent = s.toast.text; tw.classList.toggle('bad', !!s.toast.bad); }
+    const f = (x) => Math.floor(x / 60) + ':' + String(Math.floor(x % 60)).padStart(2, '0');
+    $('tm').textContent = f(t) + ' / ' + f(END);
+    if (!seeking) $('seek').value = Math.round(t / END * 1000);
+  }
+
+  // ---------- render loop ----------
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  const off = document.createElement('canvas'), offCtx = off.getContext('2d');
+  const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const rgb = (c) => { const m = c.match(/^#([0-9a-f]{6})$/i); if (!m) return [238, 241, 240]; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const ptrs = new Map();
+  let t = Number(qs.get('t') || 0), playing = false, speed = 1, seeking = false, lastTs = 0, dirty = true, snap = true, ssPlay = 1, slow = 0;
+  const still = qs.has('t');
+  if (still) document.body.classList.add('shot');
+
+  function frame(ts) {
+    const dt = Math.min(0.1, (ts - lastTs) / 1000 || 0); lastTs = ts;
+    if (playing) { t += dt * speed; if (t >= END) { t = END; setPlaying(false); } dirty = true; }
+    const s = stateAt(t);
+    const isFree = camMode === 'free' && camCur;
+    const want = isFree ? camName : camMode === 'auto' ? s.cam : camMode;
+    const moving = isFree ? ptrs.size > 0 : !camCur || want !== camName || (camCur && !camCur.ortho && (Math.abs(camCur.dist - CAMS[want].dist) > 1 || Math.abs(((CAMS[want].yaw - camCur.yaw + 540) % 360) - 180) > 0.2));
+    if (dirty || moving) {
+      if (!isFree) { camStep(want, dt, snap || still); camName = want; } snap = false;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const W = Math.max(50, Math.round(cv.clientWidth * dpr)), H = Math.max(50, Math.round(cv.clientHeight * dpr));
+      if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      const ss = (playing || moving) && !still ? ssPlay / dpr : (dpr >= 2 ? 1 : 1.6);
+      const iw = Math.round(W * ss), ih = Math.round(H * ss);
+      if (off.width !== iw || off.height !== ih) { off.width = iw; off.height = ih; }
+      const c = camCur;
+      if (c.ortho) c.scale = Math.min(iw / 440, ih / 860);
+      const t0 = performance.now();
+      const scene = SMField.build({ layout: 'L1', obst: 6, anim: s });
+      if (c.ortho) scene.labels = scene.labels.filter((l) => /^(ชั้นวาง|O[1-4]$|ฝั่ง|Order Board|Delivery)/.test(l.text));
+      const info = SMRender.render(offCtx, scene, c, { bg: rgb(cssVar('--bg')), lineWidth: Math.max(1, Math.round(1.3 * ss * dpr)) });
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(off, 0, 0, W, H);
+      SMRender.drawLabels(ctx, scene, c, info, { dpr, sideInk: cssVar('--ink') });
+      // adapt play resolution to keep the film smooth on slower devices
+      const ms = performance.now() - t0;
+      if (playing) { if (ms > 45) { if (++slow > 4 && ssPlay > 0.5) { ssPlay -= 0.15; slow = 0; } } else slow = 0; }
+      const wasDirty = dirty; dirty = false;
+      if (!playing && (moving || wasDirty) && ss < 1) dirty = true; // settle to a sharp frame once
+      updateUI(s, t);
+    }
+    document.body.dataset.ready = '1';
+    requestAnimationFrame(frame);
+  }
+
+  function setPlaying(p) { playing = p; $('play').textContent = p ? '❚❚ หยุด' : (t >= END ? '↺ เล่นซ้ำ' : '▶ เล่น'); dirty = true; }
+  $('play').addEventListener('click', () => { if (!playing && t >= END) { t = 0; snap = true; } setPlaying(!playing); });
+  const sk = $('seek');
+  sk.addEventListener('input', () => { seeking = true; t = sk.value / 1000 * END; snap = true; dirty = true; });
+  sk.addEventListener('change', () => { seeking = false; });
+  document.querySelectorAll('[data-speed]').forEach((b) => b.addEventListener('click', () => { speed = Number(b.dataset.speed); document.querySelectorAll('[data-speed]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
+  function setCam(m) { camMode = m; document.querySelectorAll('[data-cam]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.cam === m))); dirty = true; }
+  function enterFree() {
+    if (camMode === 'free') return;
+    if (!camCur || camCur.ortho) camCur = { target: [200, 400, 0], yaw: -90, pitch: 78, dist: 1350, fov: 40 };
+    setCam('free');
+  }
+  document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.cam === 'free') enterFree(); else setCam(b.dataset.cam); }));
+  // free camera: drag = orbit, shift/right drag = pan, wheel / pinch = zoom
+  let last = null, pinch0 = 0;
+  const zoom = (k) => { camCur.dist = Math.max(110, Math.min(2800, camCur.dist * k)); };
+  cv.addEventListener('pointerdown', (e) => { enterFree(); cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); last = [e.clientX, e.clientY]; cv.classList.add('drag'); if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
+  cv.addEventListener('pointermove', (e) => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+    const c = camCur;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch0 && d) zoom(pinch0 / d); pinch0 = d; dirty = true; return; }
+    const dx = e.clientX - last[0], dy = e.clientY - last[1]; last = [e.clientX, e.clientY];
+    if (e.shiftKey || e.buttons === 2) {
+      const k = c.dist / 900, y = c.yaw * Math.PI / 180, r = [Math.sin(y), -Math.cos(y)], f = [-Math.cos(y), -Math.sin(y)];
+      c.target[0] += (-dx * r[0] + dy * f[0]) * k; c.target[1] += (-dx * r[1] + dy * f[1]) * k;
+    } else { c.yaw -= dx * 0.35; c.pitch = Math.max(6, Math.min(88, c.pitch + dy * 0.3)); }
+    dirty = true;
+  });
+  const endPtr = (e) => { ptrs.delete(e.pointerId); pinch0 = 0; if (!ptrs.size) { cv.classList.remove('drag'); dirty = true; } };
+  cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
+  cv.addEventListener('contextmenu', (e) => e.preventDefault());
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); enterFree(); zoom(Math.exp(e.deltaY * 0.0012)); dirty = true; }, { passive: false });
+  chapters.forEach((c, i) => { const b = document.createElement('button'); b.textContent = c.chip || ((i ? i + '. ' : '') + c.title.replace(/^[^:]+: /, '')); b.setAttribute('aria-pressed', 'false'); b.addEventListener('click', () => { t = c.t + 0.01; snap = true; dirty = true; }); $('chips').appendChild(b); });
+  document.addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') { e.preventDefault(); $('play').click(); } });
+  window.addEventListener('resize', () => { dirty = true; });
+  if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { dirty = true; });
+  window.__motion = { END, chapters, T: T.length, bench() { const s = stateAt(30), t0 = performance.now(); for (let i = 0; i < 10; i++) { const sc = SMField.build({ layout: 'L1', obst: 6, anim: s }); SMRender.render(offCtx, sc, camCur, {}); } return [(performance.now() - t0) / 10, off.width, off.height]; } };
+  const start = () => { setPlaying(false); requestAnimationFrame(frame); };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(start); else start();
+})();
+</script>
+</body></html>
